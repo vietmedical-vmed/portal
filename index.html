@@ -59,6 +59,19 @@
     .placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); text-align: center; padding: 20px; }
     .placeholder h2 { color: var(--text); }
     .hidden { display: none !important; }
+
+    /* ===== Modal đổi mật khẩu ===== */
+    .modal-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(0,0,0,.45); display: flex; align-items: center; justify-content: center; }
+    .modal-card { background: #fff; border-radius: 12px; padding: 24px; width: 340px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+    .modal-card h3 { margin: 0 0 4px; font-size: 17px; }
+    .modal-card .msub { margin: 0 0 12px; font-size: 12px; color: var(--muted); }
+    .modal-card label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 5px; }
+    .modal-card input { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 7px; font-size: 14px; }
+    .modal-card input:focus { outline: none; border-color: var(--sidebar-active); }
+    .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+    #pwMsg { font-size: 13px; margin-top: 12px; min-height: 18px; }
+    #pwMsg.err { color: #dc2626; }
+    #pwMsg.ok { color: #16a34a; }
   </style>
 </head>
 <body>
@@ -84,6 +97,7 @@
       <div class="user-box">
         <div class="name" id="uName">—</div>
         <div id="uRole" style="font-size:12px;color:#94a3b8"></div>
+        <div class="logout" id="changePw">Đổi mật khẩu</div>
         <div class="logout" id="logout">Đăng xuất</div>
       </div>
     </aside>
@@ -103,6 +117,25 @@
         </div>
       </div>
     </main>
+  </div>
+
+  <!-- ============ MODAL ĐỔI MẬT KHẨU ============ -->
+  <div class="modal-overlay hidden" id="pwModal">
+    <form class="modal-card" id="pwForm">
+      <h3>Đổi mật khẩu</h3>
+      <p class="msub">Áp dụng cho toàn bộ ứng dụng (dùng chung 1 tài khoản)</p>
+      <label>Mật khẩu hiện tại</label>
+      <input id="pwOld" type="password" autocomplete="current-password" />
+      <label>Mật khẩu mới</label>
+      <input id="pwNew" type="password" autocomplete="new-password" />
+      <label>Nhập lại mật khẩu mới</label>
+      <input id="pwNew2" type="password" autocomplete="new-password" />
+      <div id="pwMsg"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="pwCancel">Huỷ</button>
+        <button type="submit" class="btn primary" id="pwSave">Lưu</button>
+      </div>
+    </form>
   </div>
 
   <script>
@@ -140,6 +173,7 @@
 
     const $ = s => document.querySelector(s);
     const roleOf = u => String((u && u.role) || '').toLowerCase();
+    let currentUser = null; // user đang đăng nhập (để đổi mật khẩu)
 
     // Giải mã payload của token chuẩn chung: base64url(JSON).base64url(hmac)
     function decodeToken(token) {
@@ -184,6 +218,7 @@
 
     // ---------- Dựng giao diện sau khi login ----------
     function startApp(user) {
+      currentUser = user;
       $('#gate').classList.add('hidden');
       $('#app').classList.remove('hidden');
       // Khôi phục trạng thái ẩn/hiện menu đã lưu
@@ -225,6 +260,38 @@
       }
     }
 
+    // ---------- Đổi mật khẩu ----------
+    // Dùng endpoint sale_target-login (đã hỗ trợ đổi mật khẩu, ghi vào bảng users chung).
+    async function changePassword(oldPw, newPw) {
+      const res = await fetch(AUTH.base + AUTH.loginPath, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + AUTH.anonKey,
+          'apikey': AUTH.anonKey,
+        },
+        body: JSON.stringify({ username: currentUser.username, password: oldPw, newPassword: newPw }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data.ok === false) {
+        const map = {
+          invalid: 'Mật khẩu hiện tại không đúng',
+          weak_password: 'Mật khẩu mới tối thiểu 6 ký tự',
+          same_password: 'Mật khẩu mới phải khác mật khẩu cũ',
+          update_failed: 'Cập nhật thất bại, thử lại',
+        };
+        throw new Error(map[data.error] || data.error || 'Đổi mật khẩu thất bại');
+      }
+    }
+
+    function openPwModal() {
+      $('#pwOld').value = ''; $('#pwNew').value = ''; $('#pwNew2').value = '';
+      $('#pwMsg').textContent = ''; $('#pwMsg').className = '';
+      $('#pwModal').classList.remove('hidden');
+      $('#pwOld').focus();
+    }
+    function closePwModal() { $('#pwModal').classList.add('hidden'); }
+
     // ---------- Sự kiện ----------
     $('#gateForm').addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -237,6 +304,26 @@
       } finally { btn.disabled = false; }
     });
     $('#logout').addEventListener('click', logout);
+    $('#changePw').addEventListener('click', openPwModal);
+    $('#pwCancel').addEventListener('click', closePwModal);
+    $('#pwModal').addEventListener('click', (e) => { if (e.target === $('#pwModal')) closePwModal(); });
+    $('#pwForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const oldPw = $('#pwOld').value, n1 = $('#pwNew').value, n2 = $('#pwNew2').value;
+      const msg = $('#pwMsg');
+      if (!oldPw || !n1) { msg.className = 'err'; msg.textContent = 'Nhập đủ thông tin'; return; }
+      if (n1.length < 6) { msg.className = 'err'; msg.textContent = 'Mật khẩu mới tối thiểu 6 ký tự'; return; }
+      if (n1 !== n2) { msg.className = 'err'; msg.textContent = 'Nhập lại mật khẩu không khớp'; return; }
+      if (n1 === oldPw) { msg.className = 'err'; msg.textContent = 'Mật khẩu mới phải khác mật khẩu cũ'; return; }
+      $('#pwSave').disabled = true; msg.className = ''; msg.textContent = 'Đang đổi...';
+      try {
+        await changePassword(oldPw, n1);
+        msg.className = 'ok'; msg.textContent = 'Đổi mật khẩu thành công!';
+        setTimeout(closePwModal, 1200);
+      } catch (err) {
+        msg.className = 'err'; msg.textContent = err.message;
+      } finally { $('#pwSave').disabled = false; }
+    });
     $('#navToggle').addEventListener('click', () => {
       const collapsed = $('#app').classList.toggle('nav-collapsed');
       localStorage.setItem('vmed_nav_collapsed', collapsed ? '1' : '0');
