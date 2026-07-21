@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Bảng tổng hợp — Apps & Dashboards</title>
+  <style>
+    :root {
+      --bg: #f4f6f9; --sidebar-bg: #1f2937; --sidebar-text: #cbd5e1;
+      --sidebar-active: #2563eb; --header-bg: #fff; --border: #e5e7eb;
+      --text: #111827; --muted: #6b7280;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; font-family: "Segoe UI", system-ui, sans-serif; color: var(--text); }
+
+    /* ===== Login gate ===== */
+    #gate { position: fixed; inset: 0; z-index: 100; background: linear-gradient(135deg,#1e3a8a,#1f2937);
+            display: flex; align-items: center; justify-content: center; }
+    #gate .card { background: #fff; border-radius: 12px; padding: 32px 28px; width: 340px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
+    #gate h2 { margin: 0 0 4px; font-size: 20px; }
+    #gate p.sub { margin: 0 0 22px; color: var(--muted); font-size: 13px; }
+    #gate label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 5px; }
+    #gate input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 7px; font-size: 14px; }
+    #gate input:focus { outline: none; border-color: var(--sidebar-active); }
+    #gate button { width: 100%; margin-top: 20px; padding: 11px; border: 0; border-radius: 7px;
+                   background: var(--sidebar-active); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
+    #gate button:disabled { opacity: .6; cursor: default; }
+    #gateErr { color: #dc2626; font-size: 13px; margin-top: 12px; min-height: 18px; }
+
+    /* ===== App ===== */
+    .app { display: flex; height: 100vh; overflow: hidden; }
+    .sidebar { width: 260px; flex-shrink: 0; background: var(--sidebar-bg); color: var(--sidebar-text); display: flex; flex-direction: column; }
+    .brand { padding: 18px 20px; font-size: 16px; font-weight: 600; color: #fff; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .brand small { display: block; font-weight: 400; font-size: 12px; color: #94a3b8; margin-top: 2px; }
+    .nav { flex: 1; overflow-y: auto; padding: 8px 0; }
+    .nav-group-title { padding: 14px 20px 6px; font-size: 11px; letter-spacing: .05em; text-transform: uppercase; color: #64748b; }
+    .nav-item { display: flex; align-items: center; gap: 10px; padding: 11px 20px; cursor: pointer; font-size: 14px; border-left: 3px solid transparent; }
+    .nav-item:hover { background: rgba(255,255,255,.06); color: #fff; }
+    .nav-item.active { background: rgba(37,99,235,.15); color: #fff; border-left-color: var(--sidebar-active); }
+    .nav-item .dot { width: 8px; height: 8px; border-radius: 50%; background: #475569; flex-shrink: 0; }
+    .nav-item.active .dot { background: var(--sidebar-active); }
+    .user-box { padding: 12px 20px; border-top: 1px solid rgba(255,255,255,.08); font-size: 13px; color: #cbd5e1; }
+    .user-box .name { color: #fff; font-weight: 600; }
+    .user-box .logout { margin-top: 6px; color: #93c5fd; cursor: pointer; font-size: 12px; }
+    .user-box .logout:hover { text-decoration: underline; }
+
+    .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
+    .header { height: 56px; flex-shrink: 0; background: var(--header-bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
+    .header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+    .btn { border: 1px solid var(--border); background: #fff; color: var(--text); padding: 7px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; text-decoration: none; }
+    .btn:hover { background: #f9fafb; }
+    .btn.primary { background: var(--sidebar-active); color: #fff; border-color: var(--sidebar-active); }
+    .frame-wrap { flex: 1; position: relative; }
+    iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+    .placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); text-align: center; padding: 20px; }
+    .placeholder h2 { color: var(--text); }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <!-- ============ LOGIN GATE ============ -->
+  <div id="gate">
+    <form class="card" id="gateForm">
+      <h2>Bảng tổng hợp</h2>
+      <p class="sub">Đăng nhập để xem Apps &amp; Dashboards</p>
+      <label>Tên đăng nhập</label>
+      <input id="gUser" autocomplete="username" autofocus />
+      <label>Mật khẩu</label>
+      <input id="gPass" type="password" autocomplete="current-password" />
+      <button id="gBtn" type="submit">Đăng nhập</button>
+      <div id="gateErr"></div>
+    </form>
+  </div>
+
+  <!-- ============ APP ============ -->
+  <div class="app hidden" id="app">
+    <aside class="sidebar">
+      <div class="brand">Bảng tổng hợp<small>Apps &amp; Dashboards</small></div>
+      <nav class="nav" id="nav"></nav>
+      <div class="user-box">
+        <div class="name" id="uName">—</div>
+        <div id="uRole" style="font-size:12px;color:#94a3b8"></div>
+        <div class="logout" id="logout">Đăng xuất</div>
+      </div>
+    </aside>
+    <main class="main">
+      <div class="header">
+        <h1 id="title">Chọn một mục bên trái</h1>
+        <a class="btn" id="openNew" href="#" target="_blank" rel="noopener" style="display:none">Mở tab mới ↗</a>
+      </div>
+      <div class="frame-wrap">
+        <iframe id="frame" title="Nội dung" allowfullscreen referrerpolicy="no-referrer-when-downgrade"></iframe>
+        <div class="placeholder" id="placeholder">
+          <h2>👋 Chào mừng</h2>
+          <p>Chọn một app hoặc dashboard ở menu bên trái để bắt đầu.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    /* ================== CẤU HÌNH XÁC THỰC ==================
+       Cách B — 1 token dùng chung. Portal đăng nhập 1 lần, lưu token vào
+       localStorage['vmed_token']; các app con sẽ đọc chung key này để bypass.
+    */
+    const AUTH = {
+      base:     'https://nrfxymnfmjhbsgpipvkb.supabase.co/functions/v1',
+      anonKey:  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZnh5bW5mbWpoYnNncGlwdmtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4ODk2OTQsImV4cCI6MjA5ODQ2NTY5NH0.cN-jTdPOLWKd9kNa1nNMENzHcY0_BftyYgPEbuVTWeo', // <-- dán anon key public (giống hệt key đã có trong 2 app của bạn)
+      loginPath:'/sale_target-login',   // login trung lập (nhận mọi user) — phát token CHUẨN CHUNG
+      tokenKey: 'vmed_token',           // key token dùng chung cho portal + các app con
+      userKey:  'vmed_user',
+    };
+
+    /* ================== DANH SÁCH MỤC ==================
+       roles: [] = ai cũng thấy. Có roles = chỉ role trong danh sách mới thấy.
+       (so khớp KHÔNG phân biệt hoa/thường)
+    */
+    const ITEMS = [
+      // Kế hoạch kinh doanh: để mở cho mọi user (sale-target phân quyền dữ liệu ở backend).
+      { name: "Kế hoạch kinh doanh", url: "https://vietmedical-vmed.github.io/sale-target/", group: "Web Apps" },
+      // Đặt hàng: chỉ các role mà order-api cho phép (khớp ORDER_ROLES ở backend).
+      { name: "Đặt hàng & Mua hàng", url: "https://vietmedical-vmed.github.io/order/",       group: "Web Apps",
+        roles: ["admin", "manager", "area_manager", "sale_manager", "am", "product_manager", "pm", "purchasing"] },
+      // Báo cáo Doanh thu: chỉ admin & manager.
+      { name: "Báo cáo Doanh thu",   url: "https://app.powerbi.com/reportEmbed?reportId=be600f49-2264-4519-a5db-c694bf67288d&autoAuth=true&ctid=54e0d9e1-756a-403f-bb2e-f8fd50c737ae",
+        group: "Power BI", roles: ["admin", "manager"] },
+    ];
+    /* =================================================== */
+
+    const $ = s => document.querySelector(s);
+    const roleOf = u => String((u && u.role) || '').toLowerCase();
+
+    // Giải mã payload của token chuẩn chung: base64url(JSON).base64url(hmac)
+    function decodeToken(token) {
+      try {
+        let p = String(token).split('.')[0].replace(/-/g, '+').replace(/_/g, '/');
+        while (p.length % 4) p += '=';
+        return JSON.parse(decodeURIComponent(escape(atob(p)))); // UTF-8 an toàn cho tiếng Việt
+      } catch (e) { return {}; }
+    }
+
+    // ---------- Đăng nhập ----------
+    async function login(username, password) {
+      const res = await fetch(AUTH.base + AUTH.loginPath, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + AUTH.anonKey,
+          'apikey': AUTH.anonKey,
+        },
+        body: JSON.stringify({ username, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.token) throw new Error(data.error || data.message || 'Sai tài khoản hoặc mật khẩu');
+      // Đọc thông tin user từ chính token (bền vững, không phụ thuộc response từng app)
+      const c = decodeToken(data.token);
+      const user = {
+        username: c.username || data.username || username,
+        ho_ten:   c.ho_ten   || data.ho_ten   || '',
+        role:     c.role     || data.role     || '',
+        mien:     c.mien     || data.mien     || '',
+        bu:       c.bu       || data.bu       || '',
+      };
+      localStorage.setItem(AUTH.tokenKey, data.token);
+      localStorage.setItem(AUTH.userKey, JSON.stringify(user));
+      return user;
+    }
+
+    function logout() {
+      [AUTH.tokenKey, AUTH.userKey, 'ctch_auth_token', 'sp_tok'].forEach(k => localStorage.removeItem(k));
+      location.reload();
+    }
+
+    // ---------- Dựng giao diện sau khi login ----------
+    function startApp(user) {
+      $('#gate').classList.add('hidden');
+      $('#app').classList.remove('hidden');
+      $('#uName').textContent = user.ho_va_ten || user.username || 'Người dùng';
+      $('#uRole').textContent = (user.role || '') + (user.mien ? ' · ' + user.mien : '');
+
+      const role = roleOf(user);
+      const items = ITEMS.filter(it => !it.roles || it.roles.map(r => r.toLowerCase()).includes(role));
+
+      const nav = $('#nav'); nav.innerHTML = '';
+      const groups = {};
+      items.forEach((it, i) => { const g = it.group || 'Khác'; (groups[g] = groups[g] || []).push({ ...it, i }); });
+      Object.keys(groups).forEach(g => {
+        const t = document.createElement('div'); t.className = 'nav-group-title'; t.textContent = g; nav.appendChild(t);
+        groups[g].forEach(it => {
+          const el = document.createElement('div');
+          el.className = 'nav-item'; el.dataset.i = it.i;
+          el.innerHTML = '<span class="dot"></span>' + it.name;
+          el.onclick = () => select(items, it.i);
+          nav.appendChild(el);
+        });
+      });
+    }
+
+    function select(items, i) {
+      const it = items.find(x => x.i === i); if (!it) return;
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.i == i));
+      $('#title').textContent = it.name;
+      $('#openNew').href = it.url; $('#openNew').style.display = 'inline-block';
+      if (it.embed === false) {
+        $('#placeholder').style.display = 'flex';
+        $('#placeholder').innerHTML = '<h2>' + it.name + '</h2><p>Mục này không nhúng được — hãy mở ở tab mới.</p>' +
+          '<a class="btn primary" href="' + it.url + '" target="_blank" rel="noopener" style="margin-top:12px">Mở ' + it.name + ' ↗</a>';
+        $('#frame').removeAttribute('src');
+      } else {
+        $('#placeholder').style.display = 'none';
+        $('#frame').src = it.url;
+      }
+    }
+
+    // ---------- Sự kiện ----------
+    $('#gateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = $('#gBtn'); btn.disabled = true; $('#gateErr').textContent = '';
+      try {
+        const user = await login($('#gUser').value.trim(), $('#gPass').value);
+        startApp(user);
+      } catch (err) {
+        $('#gateErr').textContent = err.message || 'Đăng nhập thất bại';
+      } finally { btn.disabled = false; }
+    });
+    $('#logout').addEventListener('click', logout);
+
+    // ---------- Khôi phục phiên khi tải lại ----------
+    (function restore() {
+      const tok = localStorage.getItem(AUTH.tokenKey);
+      const rawUser = localStorage.getItem(AUTH.userKey);
+      if (tok && rawUser) {
+        try { startApp(JSON.parse(rawUser)); } catch (e) { /* để nguyên màn login */ }
+      }
+    })();
+  </script>
+</body>
+</html>
