@@ -29,7 +29,7 @@
 
     /* ===== App ===== */
     .app { display: flex; height: 100vh; overflow: hidden; }
-    .sidebar { width: 260px; flex-shrink: 0; background: var(--sidebar-bg); color: var(--sidebar-text); display: flex; flex-direction: column; }
+    .sidebar { width: 260px; flex-shrink: 0; background: var(--sidebar-bg); color: var(--sidebar-text); display: flex; flex-direction: column; transition: margin-left .2s ease; }
     .brand { padding: 18px 20px; font-size: 16px; font-weight: 600; color: #fff; border-bottom: 1px solid rgba(255,255,255,.08); }
     .brand small { display: block; font-weight: 400; font-size: 12px; color: #94a3b8; margin-top: 2px; }
     .nav { flex: 1; overflow-y: auto; padding: 8px 0; }
@@ -47,6 +47,10 @@
     .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
     .header { height: 56px; flex-shrink: 0; background: var(--header-bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
     .header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+    .hleft { display: flex; align-items: center; gap: 12px; }
+    .icon-btn { border: 1px solid var(--border); background: #fff; width: 34px; height: 34px; border-radius: 6px; cursor: pointer; font-size: 16px; line-height: 1; color: var(--text); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .icon-btn:hover { background: #f9fafb; }
+    .app.nav-collapsed .sidebar { margin-left: -260px; }
     .btn { border: 1px solid var(--border); background: #fff; color: var(--text); padding: 7px 12px; border-radius: 6px; font-size: 13px; cursor: pointer; text-decoration: none; }
     .btn:hover { background: #f9fafb; }
     .btn.primary { background: var(--sidebar-active); color: #fff; border-color: var(--sidebar-active); }
@@ -85,7 +89,10 @@
     </aside>
     <main class="main">
       <div class="header">
-        <h1 id="title">Chọn một mục bên trái</h1>
+        <div class="hleft">
+          <button class="icon-btn" id="navToggle" title="Ẩn/hiện menu" aria-label="Ẩn/hiện menu">☰</button>
+          <h1 id="title">Chọn một mục bên trái</h1>
+        </div>
         <a class="btn" id="openNew" href="#" target="_blank" rel="noopener" style="display:none">Mở tab mới ↗</a>
       </div>
       <div class="frame-wrap">
@@ -121,8 +128,12 @@
       // Đặt hàng: chỉ các role mà order-api cho phép (khớp ORDER_ROLES ở backend).
       { name: "Đặt hàng & Mua hàng", url: "https://vietmedical-vmed.github.io/order/",       group: "Web Apps",
         roles: ["admin", "manager", "area_manager", "sale_manager", "am", "product_manager", "pm", "purchasing"] },
-      // Báo cáo Doanh thu: chỉ admin & manager.
-      { name: "Báo cáo Doanh thu",   url: "https://app.powerbi.com/reportEmbed?reportId=be600f49-2264-4519-a5db-c694bf67288d&autoAuth=true&ctid=54e0d9e1-756a-403f-bb2e-f8fd50c737ae",
+      // Báo cáo tài chính (Publish to web): chỉ admin & manager thấy trong portal.
+      { name: "Báo cáo Doanh thu",        url: "https://app.powerbi.com/view?r=eyJrIjoiOWU2MzliYzctOWViNC00Mjg0LWE3ZTAtM2VlNWNmMTQ3MWI5IiwidCI6IjU0ZTBkOWUxLTc1NmEtNDAzZi1iYjJlLWY4ZmQ1MGM3MzdhZSIsImMiOjEwfQ%3D%3D",
+        group: "Power BI", roles: ["admin", "manager"] },
+      { name: "Báo cáo Doanh thu (BOD)",  url: "https://app.powerbi.com/view?r=eyJrIjoiYjQ3MWZkM2EtN2EwMi00ZTZmLWJmNzUtODhiNjhkMWRhODk5IiwidCI6IjU0ZTBkOWUxLTc1NmEtNDAzZi1iYjJlLWY4ZmQ1MGM3MzdhZSIsImMiOjEwfQ%3D%3D",
+        group: "Power BI", roles: ["admin", "manager"] },
+      { name: "Báo cáo Chi phí",          url: "https://app.powerbi.com/view?r=eyJrIjoiODUxZjlkYmUtMmFlOC00MzA4LWE1NTgtNTg3ZWE1OTljZGQwIiwidCI6IjU0ZTBkOWUxLTc1NmEtNDAzZi1iYjJlLWY4ZmQ1MGM3MzdhZSIsImMiOjEwfQ%3D%3D",
         group: "Power BI", roles: ["admin", "manager"] },
     ];
     /* =================================================== */
@@ -175,7 +186,9 @@
     function startApp(user) {
       $('#gate').classList.add('hidden');
       $('#app').classList.remove('hidden');
-      $('#uName').textContent = user.ho_va_ten || user.username || 'Người dùng';
+      // Khôi phục trạng thái ẩn/hiện menu đã lưu
+      $('#app').classList.toggle('nav-collapsed', localStorage.getItem('vmed_nav_collapsed') === '1');
+      $('#uName').textContent = user.ho_ten || user.ho_va_ten || user.username || 'Người dùng';
       $('#uRole').textContent = (user.role || '') + (user.mien ? ' · ' + user.mien : '');
 
       const role = roleOf(user);
@@ -224,6 +237,10 @@
       } finally { btn.disabled = false; }
     });
     $('#logout').addEventListener('click', logout);
+    $('#navToggle').addEventListener('click', () => {
+      const collapsed = $('#app').classList.toggle('nav-collapsed');
+      localStorage.setItem('vmed_nav_collapsed', collapsed ? '1' : '0');
+    });
 
     // ---------- Khôi phục phiên khi tải lại ----------
     (function restore() {
