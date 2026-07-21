@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Bảng tổng hợp — Apps & Dashboards</title>
+  <title>Khối Ngoại Khoa Portal</title>
   <style>
     :root {
       --bg: #f4f6f9; --sidebar-bg: #1f2937; --sidebar-text: #cbd5e1;
@@ -61,7 +61,7 @@
   <!-- ============ LOGIN GATE ============ -->
   <div id="gate">
     <form class="card" id="gateForm">
-      <h2>Bảng tổng hợp</h2>
+      <h2>Khối Ngoại Khoa Portal</h2>
       <p class="sub">Đăng nhập để xem Apps &amp; Dashboards</p>
       <label>Tên đăng nhập</label>
       <input id="gUser" autocomplete="username" autofocus />
@@ -75,7 +75,7 @@
   <!-- ============ APP ============ -->
   <div class="app hidden" id="app">
     <aside class="sidebar">
-      <div class="brand">Bảng tổng hợp<small>Apps &amp; Dashboards</small></div>
+      <div class="brand">Khối Ngoại Khoa Portal<small>Apps &amp; Dashboards</small></div>
       <nav class="nav" id="nav"></nav>
       <div class="user-box">
         <div class="name" id="uName">—</div>
@@ -197,7 +197,7 @@
     }
 
     function select(items, i) {
-      const it = items.find(x => x.i === i); if (!it) return;
+      const it = items[i]; if (!it) return;
       document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.i == i));
       $('#title').textContent = it.name;
       $('#openNew').href = it.url; $('#openNew').style.display = 'inline-block';
