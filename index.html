@@ -218,6 +218,21 @@
       location.reload();
     }
 
+    // ---------- Reset về màn mở đầu ----------
+    function resetView() {
+      const f = $('#frame');
+      f.removeAttribute('src');
+      f.src = 'about:blank';           // chặn trình duyệt khôi phục nội dung cũ
+      f.removeAttribute('src');
+      $('#placeholder').style.display = 'flex';
+      $('#placeholder').innerHTML =
+        '<h2>👋 Chào mừng</h2><p>Chọn một app hoặc dashboard ở menu bên trái để bắt đầu.</p>';
+      $('#title').textContent = 'Chọn một mục bên trái';
+      $('#openNew').style.display = 'none';
+      $('#openNew').removeAttribute('href');
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    }
+
     // ---------- Dựng giao diện sau khi login ----------
     function startApp(user) {
       currentUser = user;
@@ -227,6 +242,10 @@
       $('#app').classList.toggle('nav-collapsed', localStorage.getItem('vmed_nav_collapsed') === '1');
       $('#uName').textContent = user.ho_ten || user.ho_va_ten || user.username || 'Người dùng';
       $('#uRole').textContent = (user.role || '') + (user.mien ? ' · ' + user.mien : '');
+
+      // Ép về màn mở đầu: xoá iframe cũ (trình duyệt có thể khôi phục src khi reload),
+      // hiện lại placeholder "Chào mừng", bỏ chọn menu.
+      resetView();
 
       const role = roleOf(user);
       const items = ITEMS.filter(it => !it.roles || it.roles.map(r => r.toLowerCase()).includes(role));
