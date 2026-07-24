@@ -26,6 +26,8 @@
                    background: var(--sidebar-active); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
     #gate button:disabled { opacity: .6; cursor: default; }
     #gateErr { color: #dc2626; font-size: 13px; margin-top: 12px; min-height: 18px; }
+    #gateCredit { position: absolute; bottom: 20px; left: 0; right: 0; text-align: center;
+                  color: rgba(255,255,255,.7); font-size: 12px; letter-spacing: .02em; }
 
     /* ===== App ===== */
     .app { display: flex; height: 100vh; overflow: hidden; }
@@ -79,7 +81,6 @@
   <div id="gate">
     <form class="card" id="gateForm">
       <h2>Khối Ngoại Khoa Portal</h2>
-      <p class="sub">Đăng nhập để xem Apps &amp; Dashboards</p>
       <label>Tên đăng nhập</label>
       <input id="gUser" autocomplete="username" autofocus />
       <label>Mật khẩu</label>
@@ -87,6 +88,7 @@
       <button id="gBtn" type="submit">Đăng nhập</button>
       <div id="gateErr"></div>
     </form>
+    <div id="gateCredit">Designed and developed by Do Hoang Giang</div>
   </div>
 
   <!-- ============ APP ============ -->
@@ -96,7 +98,6 @@
       <nav class="nav" id="nav"></nav>
       <div class="user-box">
         <div class="name" id="uName">—</div>
-        <div id="uRole" style="font-size:12px;color:#94a3b8"></div>
         <div class="logout" id="changePw">Đổi mật khẩu</div>
         <div class="logout" id="logout">Đăng xuất</div>
       </div>
@@ -163,13 +164,13 @@
         roles: ["admin", "manager", "area_manager", "sale_manager", "am", "product_manager", "pm", "purchasing"] },
       // Báo cáo tài chính (Publish to web): chỉ admin & manager thấy trong portal.
       { name: "Báo cáo Doanh thu",        url: "https://app.powerbi.com/view?r=eyJrIjoiOWU2MzliYzctOWViNC00Mjg0LWE3ZTAtM2VlNWNmMTQ3MWI5IiwidCI6IjU0ZTBkOWUxLTc1NmEtNDAzZi1iYjJlLWY4ZmQ1MGM3MzdhZSIsImMiOjEwfQ%3D%3D",
-        group: "Power BI", roles: ["admin", "manager"] },
+        group: "Dashboard", roles: ["admin", "manager"] },
       { name: "Báo cáo Doanh thu (BOD)",  url: "https://app.powerbi.com/view?r=eyJrIjoiYjQ3MWZkM2EtN2EwMi00ZTZmLWJmNzUtODhiNjhkMWRhODk5IiwidCI6IjU0ZTBkOWUxLTc1NmEtNDAzZi1iYjJlLWY4ZmQ1MGM3MzdhZSIsImMiOjEwfQ%3D%3D",
-        group: "Power BI", roles: ["admin", "manager"] },
+        group: "Dashboard", roles: ["admin", "manager"] },
       { name: "Báo cáo Doanh thu NET (BOD)", url: "https://app.powerbi.com/view?r=eyJrIjoiOTU5MWM3ZjgtZjNjNC00MGI5LThkNjItNGM0NWNlOTNlNjJkIiwidCI6IjU0ZTBkOWUxLTc1NmEtNDAzZi1iYjJlLWY4ZmQ1MGM3MzdhZSIsImMiOjEwfQ%3D%3D",
-        group: "Power BI", roles: ["admin", "manager"] },
+        group: "Dashboard", roles: ["admin", "manager"] },
       { name: "Báo cáo Chi phí",          url: "https://app.powerbi.com/view?r=eyJrIjoiODUxZjlkYmUtMmFlOC00MzA4LWE1NTgtNTg3ZWE1OTljZGQwIiwidCI6IjU0ZTBkOWUxLTc1NmEtNDAzZi1iYjJlLWY4ZmQ1MGM3MzdhZSIsImMiOjEwfQ%3D%3D",
-        group: "Power BI", roles: ["admin", "manager"] },
+        group: "Dashboard", roles: ["admin", "manager"] },
     ];
     /* =================================================== */
 
@@ -241,7 +242,6 @@
       // Khôi phục trạng thái ẩn/hiện menu đã lưu
       $('#app').classList.toggle('nav-collapsed', localStorage.getItem('vmed_nav_collapsed') === '1');
       $('#uName').textContent = user.ho_ten || user.ho_va_ten || user.username || 'Người dùng';
-      $('#uRole').textContent = (user.role || '') + (user.mien ? ' · ' + user.mien : '');
 
       // Ép về màn mở đầu: xoá iframe cũ (trình duyệt có thể khôi phục src khi reload),
       // hiện lại placeholder "Chào mừng", bỏ chọn menu.
