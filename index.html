@@ -74,6 +74,33 @@
     #pwMsg { font-size: 13px; margin-top: 12px; min-height: 18px; }
     #pwMsg.err { color: #dc2626; }
     #pwMsg.ok { color: #16a34a; }
+
+    /* ===== Config panel (inline, thay placeholder/iframe) ===== */
+    .config-panel { position: absolute; inset: 0; overflow-y: auto; background: var(--bg); padding: 24px 28px; }
+    .config-panel h2 { margin: 0 0 4px; font-size: 18px; }
+    .config-panel .csub { margin: 0 0 18px; font-size: 13px; color: var(--muted); }
+    .cfg-toolbar { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .cfg-table { width: 100%; border-collapse: collapse; font-size: 13px; background: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .cfg-table th { background: #f1f5f9; text-align: left; padding: 10px 12px; font-weight: 600; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .03em; }
+    .cfg-table td { padding: 10px 12px; border-top: 1px solid var(--border); vertical-align: middle; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cfg-table tr:hover td { background: #f9fafb; }
+    .cfg-table .url-cell { font-size: 11px; color: var(--muted); }
+    .cfg-table .roles-cell { font-size: 11px; }
+    .cfg-table .actions-cell { white-space: nowrap; }
+    .cfg-table .actions-cell button { background: none; border: none; cursor: pointer; padding: 4px 6px; border-radius: 4px; font-size: 13px; }
+    .cfg-table .actions-cell button:hover { background: #e5e7eb; }
+    .cfg-table .drag-handle { cursor: grab; color: #94a3b8; padding: 4px 6px; user-select: none; }
+    .cfg-table tr.dragging { opacity: .4; }
+    .cfg-table tr.drag-over td { border-top: 2px solid var(--sidebar-active); }
+    .cfg-empty { text-align: center; padding: 40px 20px; color: var(--muted); }
+
+    /* ===== Modal thêm/sửa item ===== */
+    .cfg-modal .modal-card { width: 440px; }
+    .cfg-modal .modal-card label span.hint { font-weight: 400; color: #94a3b8; margin-left: 4px; }
+    .cfg-modal .modal-card input, .cfg-modal .modal-card select { margin-bottom: 2px; }
+    .cfg-modal .field-row { display: flex; gap: 12px; }
+    .cfg-modal .field-row > div { flex: 1; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; background: #e0e7ff; color: #3730a3; margin-right: 4px; }
   </style>
 </head>
 <body>
@@ -139,6 +166,40 @@
     </form>
   </div>
 
+  <!-- ============ MODAL THÊM/SỬA ITEM ============ -->
+  <div class="modal-overlay hidden cfg-modal" id="cfgModal">
+    <form class="modal-card" id="cfgForm">
+      <h3 id="cfgModalTitle">Thêm mục mới</h3>
+      <p class="msub">Khai báo thông tin cho dashboard / app</p>
+      <label>Tên hiển thị <span class="hint">(*)</span></label>
+      <input id="cfgName" required placeholder="VD: Báo cáo Doanh thu" />
+      <label>URL <span class="hint">(*)</span></label>
+      <input id="cfgUrl" required placeholder="https://..." />
+      <div class="field-row">
+        <div>
+          <label>Nhóm <span class="hint">(*)</span></label>
+          <input id="cfgGroup" required placeholder="VD: Dashboard" list="cfgGroupList" />
+          <datalist id="cfgGroupList"></datalist>
+        </div>
+        <div>
+          <label>Nhúng iframe?</label>
+          <select id="cfgEmbed" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-size:14px;background:#fff;">
+            <option value="yes">Có (mặc định)</option>
+            <option value="no">Không — mở tab mới</option>
+          </select>
+        </div>
+      </div>
+      <label>Roles cho phép <span class="hint">(để trống = tất cả)</span></label>
+      <input id="cfgRoles" placeholder="VD: admin, manager (cách nhau dấu phẩy)" />
+      <div id="cfgMsg" style="font-size:13px;margin-top:8px;min-height:18px;color:#dc2626;"></div>
+      <input type="hidden" id="cfgIdx" value="-1" />
+      <div class="modal-actions">
+        <button type="button" class="btn" id="cfgCancel">Huỷ</button>
+        <button type="submit" class="btn primary">Lưu</button>
+      </div>
+    </form>
+  </div>
+
   <script>
     /* ================== CẤU HÌNH XÁC THỰC ==================
        Cách B — 1 token dùng chung. Portal đăng nhập 1 lần, lưu token vào
@@ -146,23 +207,17 @@
     */
     const AUTH = {
       base:     'https://nrfxymnfmjhbsgpipvkb.supabase.co/functions/v1',
-      anonKey:  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZnh5bW5mbWpoYnNncGlwdmtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4ODk2OTQsImV4cCI6MjA5ODQ2NTY5NH0.cN-jTdPOLWKd9kNa1nNMENzHcY0_BftyYgPEbuVTWeo', // <-- dán anon key public (giống hệt key đã có trong 2 app của bạn)
-      loginPath:'/sale_target-login',   // login trung lập (nhận mọi user) — phát token CHUẨN CHUNG
-      tokenKey: 'vmed_token',           // key token dùng chung cho portal + các app con
+      anonKey:  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5yZnh5bW5mbWpoYnNncGlwdmtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODI4ODk2OTQsImV4cCI6MjA5ODQ2NTY5NH0.cN-jTdPOLWKd9kNa1nNMENzHcY0_BftyYgPEbuVTWeo',
+      loginPath:'/sale_target-login',
+      tokenKey: 'vmed_token',
       userKey:  'vmed_user',
     };
 
-    /* ================== DANH SÁCH MỤC ==================
-       roles: [] = ai cũng thấy. Có roles = chỉ role trong danh sách mới thấy.
-       (so khớp KHÔNG phân biệt hoa/thường)
-    */
-    const ITEMS = [
-      // Kế hoạch kinh doanh: để mở cho mọi user (sale-target phân quyền dữ liệu ở backend).
+    /* ================== DANH SÁCH MỤC MẶC ĐỊNH ================== */
+    const DEFAULT_ITEMS = [
       { name: "Kế hoạch kinh doanh", url: "https://vietmedical-vmed.github.io/sale-target/", group: "Web Apps" },
-      // Đặt hàng: chỉ các role mà order-api cho phép (khớp ORDER_ROLES ở backend).
       { name: "Đặt hàng & Mua hàng", url: "https://vietmedical-vmed.github.io/order/",       group: "Web Apps",
         roles: ["admin", "manager", "area_manager", "sale_manager", "am", "product_manager", "pm", "purchasing"] },
-      // Báo cáo tài chính (Publish to web): chỉ admin & manager thấy trong portal.
       { name: "Báo cáo Doanh thu",        url: "https://app.powerbi.com/view?r=eyJrIjoiOWU2MzliYzctOWViNC00Mjg0LWE3ZTAtM2VlNWNmMTQ3MWI5IiwidCI6IjU0ZTBkOWUxLTc1NmEtNDAzZi1iYjJlLWY4ZmQ1MGM3MzdhZSIsImMiOjEwfQ%3D%3D",
         group: "Dashboard", roles: ["admin", "manager"] },
       { name: "Báo cáo Doanh thu (BOD)",  url: "https://app.powerbi.com/view?r=eyJrIjoiYjQ3MWZkM2EtN2EwMi00ZTZmLWJmNzUtODhiNjhkMWRhODk5IiwidCI6IjU0ZTBkOWUxLTc1NmEtNDAzZi1iYjJlLWY4ZmQ1MGM3MzdhZSIsImMiOjEwfQ%3D%3D",
@@ -172,11 +227,24 @@
       { name: "Báo cáo Chi phí",          url: "https://app.powerbi.com/view?r=eyJrIjoiODUxZjlkYmUtMmFlOC00MzA4LWE1NTgtNTg3ZWE1OTljZGQwIiwidCI6IjU0ZTBkOWUxLTc1NmEtNDAzZi1iYjJlLWY4ZmQ1MGM3MzdhZSIsImMiOjEwfQ%3D%3D",
         group: "Dashboard", roles: ["admin", "manager"] },
     ];
+
+    const CFG_KEY = 'vmed_items_config';
+
+    function loadItems() {
+      try {
+        const saved = localStorage.getItem(CFG_KEY);
+        if (saved) return JSON.parse(saved);
+      } catch (e) {}
+      return null;
+    }
+    function saveItems(items) { localStorage.setItem(CFG_KEY, JSON.stringify(items)); }
+    function getItems() { return loadItems() || JSON.parse(JSON.stringify(DEFAULT_ITEMS)); }
     /* =================================================== */
 
     const $ = s => document.querySelector(s);
     const roleOf = u => String((u && u.role) || '').toLowerCase();
-    let currentUser = null; // user đang đăng nhập (để đổi mật khẩu)
+    let currentUser = null;
+    let inConfigMode = false;
 
     // Giải mã payload của token chuẩn chung: base64url(JSON).base64url(hmac)
     function decodeToken(token) {
@@ -221,10 +289,14 @@
 
     // ---------- Reset về màn mở đầu ----------
     function resetView() {
+      inConfigMode = false;
       const f = $('#frame');
       f.removeAttribute('src');
-      f.src = 'about:blank';           // chặn trình duyệt khôi phục nội dung cũ
+      f.src = 'about:blank';
       f.removeAttribute('src');
+      f.style.display = '';
+      const cp = document.getElementById('configPanel');
+      if (cp) cp.remove();
       $('#placeholder').style.display = 'flex';
       $('#placeholder').innerHTML =
         '<h2>👋 Chào mừng</h2><p>Chọn một app hoặc dashboard ở menu bên trái để bắt đầu.</p>';
@@ -235,20 +307,11 @@
     }
 
     // ---------- Dựng giao diện sau khi login ----------
-    function startApp(user) {
-      currentUser = user;
-      $('#gate').classList.add('hidden');
-      $('#app').classList.remove('hidden');
-      // Khôi phục trạng thái ẩn/hiện menu đã lưu
-      $('#app').classList.toggle('nav-collapsed', localStorage.getItem('vmed_nav_collapsed') === '1');
-      $('#uName').textContent = user.ho_ten || user.ho_va_ten || user.username || 'Người dùng';
-
-      // Ép về màn mở đầu: xoá iframe cũ (trình duyệt có thể khôi phục src khi reload),
-      // hiện lại placeholder "Chào mừng", bỏ chọn menu.
-      resetView();
-
+    function buildNav(user) {
       const role = roleOf(user);
-      const items = ITEMS.filter(it => !it.roles || it.roles.map(r => r.toLowerCase()).includes(role));
+      const allItems = getItems();
+      const items = allItems.filter(it => !it.roles || it.roles.map(r => r.toLowerCase()).includes(role));
+      const isAdmin = role === 'admin';
 
       const nav = $('#nav'); nav.innerHTML = '';
       const groups = {};
@@ -259,26 +322,254 @@
           const el = document.createElement('div');
           el.className = 'nav-item'; el.dataset.i = it.i;
           el.innerHTML = '<span class="dot"></span>' + it.name;
-          el.onclick = () => select(items, it.i);
+          el.onclick = () => selectItem(items, it.i);
           nav.appendChild(el);
         });
       });
+
+      if (isAdmin) {
+        const sep = document.createElement('div'); sep.className = 'nav-group-title'; sep.textContent = 'Quản trị'; nav.appendChild(sep);
+        const cfgEl = document.createElement('div');
+        cfgEl.className = 'nav-item'; cfgEl.dataset.i = '__cfg__';
+        cfgEl.innerHTML = '<span class="dot"></span>Cấu hình Dashboard';
+        cfgEl.onclick = () => openConfigPanel();
+        nav.appendChild(cfgEl);
+      }
     }
 
-    function select(items, i) {
+    function startApp(user) {
+      currentUser = user;
+      $('#gate').classList.add('hidden');
+      $('#app').classList.remove('hidden');
+      $('#app').classList.toggle('nav-collapsed', localStorage.getItem('vmed_nav_collapsed') === '1');
+      $('#uName').textContent = user.ho_ten || user.ho_va_ten || user.username || 'Người dùng';
+      resetView();
+      buildNav(user);
+    }
+
+    function selectItem(items, i) {
+      inConfigMode = false;
+      const cp = document.getElementById('configPanel');
+      if (cp) cp.remove();
       const it = items[i]; if (!it) return;
       document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.i == i));
       $('#title').textContent = it.name;
       $('#openNew').href = it.url; $('#openNew').style.display = 'inline-block';
       if (it.embed === false) {
+        $('#frame').style.display = 'none';
         $('#placeholder').style.display = 'flex';
         $('#placeholder').innerHTML = '<h2>' + it.name + '</h2><p>Mục này không nhúng được — hãy mở ở tab mới.</p>' +
           '<a class="btn primary" href="' + it.url + '" target="_blank" rel="noopener" style="margin-top:12px">Mở ' + it.name + ' ↗</a>';
-        $('#frame').removeAttribute('src');
       } else {
         $('#placeholder').style.display = 'none';
+        $('#frame').style.display = '';
         $('#frame').src = it.url;
       }
+    }
+
+    /* ================== CẤU HÌNH DASHBOARD ================== */
+    function openConfigPanel() {
+      inConfigMode = true;
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.i === '__cfg__'));
+      $('#title').textContent = 'Cấu hình Dashboard';
+      $('#openNew').style.display = 'none';
+      $('#placeholder').style.display = 'none';
+      $('#frame').style.display = 'none';
+
+      let cp = document.getElementById('configPanel');
+      if (!cp) {
+        cp = document.createElement('div');
+        cp.id = 'configPanel';
+        cp.className = 'config-panel';
+        document.querySelector('.frame-wrap').appendChild(cp);
+      }
+      renderConfigTable();
+    }
+
+    function renderConfigTable() {
+      const cp = document.getElementById('configPanel');
+      if (!cp) return;
+      const items = getItems();
+      const hasCustom = !!localStorage.getItem(CFG_KEY);
+
+      let html = '<h2>Cấu hình Dashboard & Apps</h2>';
+      html += '<p class="csub">Thêm, sửa, xoá hoặc sắp xếp các mục hiển thị trên menu. Thay đổi được lưu ngay trên trình duyệt này.</p>';
+      html += '<div class="cfg-toolbar">';
+      html += '<button class="btn primary" onclick="openCfgAdd()">+ Thêm mục mới</button>';
+      if (hasCustom) html += '<button class="btn" onclick="resetCfgDefault()">Reset về mặc định</button>';
+      html += '<button class="btn" onclick="exportCfg()">Xuất JSON</button>';
+      html += '<button class="btn" onclick="document.getElementById(\'cfgImportFile\').click()">Nhập JSON</button>';
+      html += '<input type="file" id="cfgImportFile" accept=".json" style="display:none" onchange="importCfg(this)" />';
+      html += '</div>';
+
+      if (items.length === 0) {
+        html += '<div class="cfg-empty"><p>Chưa có mục nào. Nhấn "+ Thêm mục mới" để bắt đầu.</p></div>';
+      } else {
+        html += '<table class="cfg-table"><thead><tr>';
+        html += '<th style="width:36px"></th><th style="width:36px">#</th><th>Tên</th><th>Nhóm</th><th>URL</th><th>Roles</th><th>Nhúng</th><th style="width:90px">Thao tác</th>';
+        html += '</tr></thead><tbody id="cfgBody">';
+        items.forEach((it, i) => {
+          const rolesStr = (it.roles || []).join(', ') || '<span style="color:#94a3b8">Tất cả</span>';
+          const embedStr = it.embed === false ? 'Không' : 'Có';
+          html += '<tr draggable="true" data-ci="' + i + '">';
+          html += '<td class="drag-handle" title="Kéo để sắp xếp">⠿</td>';
+          html += '<td>' + (i + 1) + '</td>';
+          html += '<td><strong>' + escHtml(it.name) + '</strong></td>';
+          html += '<td><span class="badge">' + escHtml(it.group || 'Khác') + '</span></td>';
+          html += '<td class="url-cell" title="' + escHtml(it.url) + '">' + escHtml(truncUrl(it.url)) + '</td>';
+          html += '<td class="roles-cell">' + rolesStr + '</td>';
+          html += '<td>' + embedStr + '</td>';
+          html += '<td class="actions-cell">';
+          html += '<button title="Sửa" onclick="openCfgEdit(' + i + ')">✏️</button>';
+          html += '<button title="Xoá" onclick="deleteCfgItem(' + i + ')">🗑️</button>';
+          html += '</td></tr>';
+        });
+        html += '</tbody></table>';
+      }
+      cp.innerHTML = html;
+      initDragSort();
+    }
+
+    function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function truncUrl(u) { try { const url = new URL(u); return url.hostname + (url.pathname.length > 30 ? url.pathname.slice(0, 27) + '...' : url.pathname); } catch(e) { return u.slice(0, 50); } }
+
+    // --- Drag & Drop sắp xếp ---
+    let dragIdx = null;
+    function initDragSort() {
+      const tbody = document.getElementById('cfgBody');
+      if (!tbody) return;
+      tbody.querySelectorAll('tr').forEach(row => {
+        row.addEventListener('dragstart', (e) => {
+          dragIdx = +row.dataset.ci;
+          row.classList.add('dragging');
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        row.addEventListener('dragend', () => { row.classList.remove('dragging'); dragIdx = null; clearDragOver(); });
+        row.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; clearDragOver(); row.classList.add('drag-over'); });
+        row.addEventListener('drop', (e) => {
+          e.preventDefault(); clearDragOver();
+          const toIdx = +row.dataset.ci;
+          if (dragIdx !== null && dragIdx !== toIdx) {
+            const items = getItems();
+            const [moved] = items.splice(dragIdx, 1);
+            items.splice(toIdx, 0, moved);
+            saveItems(items);
+            renderConfigTable();
+            buildNav(currentUser);
+          }
+        });
+      });
+    }
+    function clearDragOver() { document.querySelectorAll('.cfg-table tr.drag-over').forEach(r => r.classList.remove('drag-over')); }
+
+    // --- Thêm / Sửa item ---
+    function openCfgAdd() {
+      $('#cfgModalTitle').textContent = 'Thêm mục mới';
+      $('#cfgName').value = ''; $('#cfgUrl').value = ''; $('#cfgGroup').value = '';
+      $('#cfgEmbed').value = 'yes'; $('#cfgRoles').value = ''; $('#cfgIdx').value = '-1'; $('#cfgMsg').textContent = '';
+      populateGroupDatalist();
+      $('#cfgModal').classList.remove('hidden');
+      $('#cfgName').focus();
+    }
+
+    function openCfgEdit(i) {
+      const items = getItems();
+      const it = items[i]; if (!it) return;
+      $('#cfgModalTitle').textContent = 'Sửa: ' + it.name;
+      $('#cfgName').value = it.name;
+      $('#cfgUrl').value = it.url;
+      $('#cfgGroup').value = it.group || '';
+      $('#cfgEmbed').value = it.embed === false ? 'no' : 'yes';
+      $('#cfgRoles').value = (it.roles || []).join(', ');
+      $('#cfgIdx').value = String(i);
+      $('#cfgMsg').textContent = '';
+      populateGroupDatalist();
+      $('#cfgModal').classList.remove('hidden');
+      $('#cfgName').focus();
+    }
+
+    function populateGroupDatalist() {
+      const items = getItems();
+      const groups = [...new Set(items.map(it => it.group || 'Khác'))];
+      const dl = document.getElementById('cfgGroupList');
+      dl.innerHTML = groups.map(g => '<option value="' + escHtml(g) + '">').join('');
+    }
+
+    function closeCfgModal() { $('#cfgModal').classList.add('hidden'); }
+
+    $('#cfgCancel').addEventListener('click', closeCfgModal);
+    $('#cfgModal').addEventListener('click', (e) => { if (e.target === $('#cfgModal')) closeCfgModal(); });
+    $('#cfgForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = $('#cfgName').value.trim();
+      const url = $('#cfgUrl').value.trim();
+      const group = $('#cfgGroup').value.trim();
+      const embed = $('#cfgEmbed').value !== 'no';
+      const rolesRaw = $('#cfgRoles').value.trim();
+      const roles = rolesRaw ? rolesRaw.split(',').map(r => r.trim()).filter(Boolean) : [];
+      const idx = parseInt($('#cfgIdx').value, 10);
+
+      if (!name || !url || !group) { $('#cfgMsg').textContent = 'Vui lòng điền đủ các trường bắt buộc'; return; }
+
+      const items = getItems();
+      const obj = { name, url, group };
+      if (!embed) obj.embed = false;
+      if (roles.length) obj.roles = roles;
+
+      if (idx >= 0 && idx < items.length) {
+        items[idx] = obj;
+      } else {
+        items.push(obj);
+      }
+      saveItems(items);
+      closeCfgModal();
+      renderConfigTable();
+      buildNav(currentUser);
+    });
+
+    // --- Xoá item ---
+    function deleteCfgItem(i) {
+      const items = getItems();
+      const it = items[i];
+      if (!it || !confirm('Xoá "' + it.name + '"?')) return;
+      items.splice(i, 1);
+      saveItems(items);
+      renderConfigTable();
+      buildNav(currentUser);
+    }
+
+    // --- Reset về mặc định ---
+    function resetCfgDefault() {
+      if (!confirm('Reset tất cả về danh sách mặc định? Các thay đổi tuỳ chỉnh sẽ mất.')) return;
+      localStorage.removeItem(CFG_KEY);
+      renderConfigTable();
+      buildNav(currentUser);
+    }
+
+    // --- Xuất / Nhập JSON ---
+    function exportCfg() {
+      const items = getItems();
+      const blob = new Blob([JSON.stringify(items, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+      a.download = 'portal-config.json'; a.click(); URL.revokeObjectURL(a.href);
+    }
+
+    function importCfg(input) {
+      const file = input.files[0]; if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const items = JSON.parse(reader.result);
+          if (!Array.isArray(items)) throw new Error('not array');
+          items.forEach(it => { if (!it.name || !it.url) throw new Error('missing fields'); });
+          saveItems(items);
+          renderConfigTable();
+          buildNav(currentUser);
+          alert('Nhập thành công ' + items.length + ' mục!');
+        } catch (e) { alert('File JSON không hợp lệ: ' + e.message); }
+      };
+      reader.readAsText(file);
+      input.value = '';
     }
 
     // ---------- Đổi mật khẩu ----------
