@@ -346,6 +346,16 @@
       const isAdmin = role === 'admin';
 
       const nav = $('#nav'); nav.innerHTML = '';
+
+      if (isAdmin) {
+        const sep = document.createElement('div'); sep.className = 'nav-group-title'; sep.textContent = 'Quản trị'; nav.appendChild(sep);
+        const cfgEl = document.createElement('div');
+        cfgEl.className = 'nav-item'; cfgEl.dataset.i = '__cfg__';
+        cfgEl.innerHTML = '<span class="dot"></span>Cấu hình Portal';
+        cfgEl.onclick = () => openConfigPanel();
+        nav.appendChild(cfgEl);
+      }
+
       const groups = {};
       items.forEach((it, i) => { const g = it.group || 'Khác'; (groups[g] = groups[g] || []).push({ ...it, i }); });
       Object.keys(groups).forEach(g => {
@@ -358,15 +368,6 @@
           nav.appendChild(el);
         });
       });
-
-      if (isAdmin) {
-        const sep = document.createElement('div'); sep.className = 'nav-group-title'; sep.textContent = 'Quản trị'; nav.appendChild(sep);
-        const cfgEl = document.createElement('div');
-        cfgEl.className = 'nav-item'; cfgEl.dataset.i = '__cfg__';
-        cfgEl.innerHTML = '<span class="dot"></span>Cấu hình Dashboard';
-        cfgEl.onclick = () => openConfigPanel();
-        nav.appendChild(cfgEl);
-      }
     }
 
     function startApp(user) {
@@ -403,7 +404,7 @@
     function openConfigPanel() {
       inConfigMode = true;
       document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.i === '__cfg__'));
-      $('#title').textContent = 'Cấu hình Dashboard';
+      $('#title').textContent = 'Cấu hình Portal';
       $('#openNew').style.display = 'none';
       $('#placeholder').style.display = 'none';
       $('#frame').style.display = 'none';
@@ -424,7 +425,7 @@
       const items = getItems();
       const hasCustom = !!localStorage.getItem(CFG_KEY);
 
-      let html = '<h2>Cấu hình Dashboard & Apps</h2>';
+      let html = '<h2>Cấu hình Portal</h2>';
       html += '<p class="csub">Thêm, sửa, xoá hoặc sắp xếp các mục hiển thị trên menu. Thay đổi được lưu ngay trên trình duyệt này.</p>';
       html += '<div class="cfg-toolbar">';
       html += '<button class="btn primary" onclick="openCfgAdd()">+ Thêm mục mới</button>';
