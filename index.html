@@ -249,7 +249,8 @@
         group: "Dashboard", roles: ["admin", "manager"] },
     ];
 
-    const CFG_KEY = 'vmed_items_config';
+    const SUPABASE_REST = AUTH.base.replace('/functions/v1', '/rest/v1');
+    const SB_HEADERS = { 'apikey': AUTH.anonKey, 'Authorization': 'Bearer ' + AUTH.anonKey, 'Content-Type': 'application/json' };
 
     const KNOWN_ROLES = [
       { value: 'admin',           label: 'Admin',           desc: 'Quản trị viên' },
@@ -262,15 +263,40 @@
       { value: 'purchasing',      label: 'Purchasing',      desc: 'Mua hàng' },
     ];
 
-    function loadItems() {
+    let cachedItems = null;
+
+    async function fetchConfig() {
       try {
-        const saved = localStorage.getItem(CFG_KEY);
-        if (saved) return JSON.parse(saved);
-      } catch (e) {}
-      return null;
+        const res = await fetch(SUPABASE_REST + '/portal_config?select=items&id=eq.1', { headers: SB_HEADERS });
+        const rows = await res.json();
+        if (rows.length && Array.isArray(rows[0].items) && rows[0].items.length) {
+          cachedItems = rows[0].items;
+        } else {
+          cachedItems = null;
+        }
+      } catch (e) { cachedItems = null; }
     }
-    function saveItems(items) { localStorage.setItem(CFG_KEY, JSON.stringify(items)); }
-    function getItems() { return loadItems() || JSON.parse(JSON.stringify(DEFAULT_ITEMS)); }
+
+    function getItems() { return cachedItems ? JSON.parse(JSON.stringify(cachedItems)) : JSON.parse(JSON.stringify(DEFAULT_ITEMS)); }
+    function hasCustomConfig() { return cachedItems !== null; }
+
+    async function saveItems(items) {
+      cachedItems = items;
+      try {
+        await fetch(SUPABASE_REST + '/portal_config', {
+          method: 'POST',
+          headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+          body: JSON.stringify({ id: 1, items, updated_at: new Date().toISOString() }),
+        });
+      } catch (e) { console.error('Lưu config thất bại', e); }
+    }
+
+    async function clearConfig() {
+      cachedItems = null;
+      try {
+        await fetch(SUPABASE_REST + '/portal_config?id=eq.1', { method: 'DELETE', headers: SB_HEADERS });
+      } catch (e) {}
+    }
     /* =================================================== */
 
     const $ = s => document.querySelector(s);
@@ -370,13 +396,14 @@
       });
     }
 
-    function startApp(user) {
+    async function startApp(user) {
       currentUser = user;
       $('#gate').classList.add('hidden');
       $('#app').classList.remove('hidden');
       $('#app').classList.toggle('nav-collapsed', localStorage.getItem('vmed_nav_collapsed') === '1');
       $('#uName').textContent = user.ho_ten || user.ho_va_ten || user.username || 'Người dùng';
       resetView();
+      await fetchConfig();
       buildNav(user);
     }
 
@@ -423,7 +450,7 @@
       const cp = document.getElementById('configPanel');
       if (!cp) return;
       const items = getItems();
-      const hasCustom = !!localStorage.getItem(CFG_KEY);
+      const hasCustom = hasCustomConfig();
 
       let html = '<h2>Cấu hình Portal</h2>';
       html += '<p class="csub">Thêm, sửa, xoá hoặc sắp xếp các mục hiển thị trên menu. Thay đổi được lưu ngay trên trình duyệt này.</p>';
@@ -479,14 +506,14 @@
         });
         row.addEventListener('dragend', () => { row.classList.remove('dragging'); dragIdx = null; clearDragOver(); });
         row.addEventListener('dragover', (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; clearDragOver(); row.classList.add('drag-over'); });
-        row.addEventListener('drop', (e) => {
+        row.addEventListener('drop', async (e) => {
           e.preventDefault(); clearDragOver();
           const toIdx = +row.dataset.ci;
           if (dragIdx !== null && dragIdx !== toIdx) {
             const items = getItems();
             const [moved] = items.splice(dragIdx, 1);
             items.splice(toIdx, 0, moved);
-            saveItems(items);
+            await saveItems(items);
             renderConfigTable();
             buildNav(currentUser);
           }
@@ -579,7 +606,7 @@
 
     $('#cfgCancel').addEventListener('click', closeCfgModal);
     $('#cfgModal').addEventListener('click', (e) => { if (e.target === $('#cfgModal')) closeCfgModal(); });
-    $('#cfgForm').addEventListener('submit', (e) => {
+    $('#cfgForm').addEventListener('submit', async (e) => {
       e.preventDefault();
       const name = $('#cfgName').value.trim();
       const url = $('#cfgUrl').value.trim();
@@ -600,27 +627,27 @@
       } else {
         items.push(obj);
       }
-      saveItems(items);
+      await saveItems(items);
       closeCfgModal();
       renderConfigTable();
       buildNav(currentUser);
     });
 
     // --- Xoá item ---
-    function deleteCfgItem(i) {
+    async function deleteCfgItem(i) {
       const items = getItems();
       const it = items[i];
       if (!it || !confirm('Xoá "' + it.name + '"?')) return;
       items.splice(i, 1);
-      saveItems(items);
+      await saveItems(items);
       renderConfigTable();
       buildNav(currentUser);
     }
 
     // --- Reset về mặc định ---
-    function resetCfgDefault() {
+    async function resetCfgDefault() {
       if (!confirm('Reset tất cả về danh sách mặc định? Các thay đổi tuỳ chỉnh sẽ mất.')) return;
-      localStorage.removeItem(CFG_KEY);
+      await clearConfig();
       renderConfigTable();
       buildNav(currentUser);
     }
@@ -636,12 +663,12 @@
     function importCfg(input) {
       const file = input.files[0]; if (!file) return;
       const reader = new FileReader();
-      reader.onload = () => {
+      reader.onload = async () => {
         try {
           const items = JSON.parse(reader.result);
           if (!Array.isArray(items)) throw new Error('not array');
           items.forEach(it => { if (!it.name || !it.url) throw new Error('missing fields'); });
-          saveItems(items);
+          await saveItems(items);
           renderConfigTable();
           buildNav(currentUser);
           alert('Nhập thành công ' + items.length + ' mục!');
