@@ -8,7 +8,7 @@
   <style>
     :root {
       --bg: #f4f6f9; --sidebar-bg: #1f2937; --sidebar-text: #cbd5e1;
-      --sidebar-active: #2563eb; --header-bg: #fff; --border: #e5e7eb;
+      --sidebar-active: #1877f2; --header-bg: #fff; --border: #dadde1;
       --text: #111827; --muted: #6b7280;
     }
     * { box-sizing: border-box; }
@@ -44,9 +44,12 @@
     .nav-item .dot { width: 8px; height: 8px; border-radius: 50%; background: #475569; flex-shrink: 0; }
     .nav-item.active .dot { background: var(--sidebar-active); }
     .user-box { padding: 12px 20px; border-top: 1px solid rgba(255,255,255,.08); font-size: 13px; color: #cbd5e1; }
+    .user-box .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--sidebar-active); color: #fff; font-weight: 700; font-size: 13px; display: grid; place-items: center; margin-bottom: 6px; }
     .user-box .name { color: #fff; font-weight: 600; }
     .user-box .logout { margin-top: 6px; color: #93c5fd; cursor: pointer; font-size: 12px; }
     .user-box .logout:hover { text-decoration: underline; }
+    .sidebar-credit { padding: 10px 20px; font-size: 9px; color: #64748b; font-style: italic; border-top: 1px solid rgba(255,255,255,.08); }
+    .sidebar-credit strong { font-style: normal; color: #94a3b8; }
 
     .main { flex: 1; display: flex; flex-direction: column; background: var(--bg); min-width: 0; }
     .header { height: 56px; flex-shrink: 0; background: var(--header-bg); border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; padding: 0 20px; }
@@ -160,10 +163,12 @@
       <div class="brand">Khối Ngoại Khoa Portal<small>Apps &amp; Dashboards</small></div>
       <nav class="nav" id="nav"></nav>
       <div class="user-box">
+        <div class="avatar" id="uAvatar">KN</div>
         <div class="name" id="uName">—</div>
         <div class="logout" id="changePw">Đổi mật khẩu</div>
         <div class="logout" id="logout">Đăng xuất</div>
       </div>
+      <div class="sidebar-credit">Designed and developed by <strong>Do Hoang Giang</strong></div>
     </aside>
     <main class="main">
       <div class="header">
@@ -422,7 +427,11 @@
       $('#gate').classList.add('hidden');
       $('#app').classList.remove('hidden');
       $('#app').classList.toggle('nav-collapsed', localStorage.getItem('vmed_nav_collapsed') === '1');
-      $('#uName').textContent = user.ho_ten || user.ho_va_ten || user.username || 'Người dùng';
+      const uSrc = (user.ho_ten || user.ho_va_ten || user.username || '').trim();
+      const uParts = uSrc.split(/\s+/);
+      const uIni = uParts.length >= 2 ? (uParts[0][0] + uParts[uParts.length - 1][0]).toUpperCase() : uSrc.slice(0, 2).toUpperCase();
+      $('#uAvatar').textContent = uIni || 'KN';
+      $('#uName').textContent = uSrc || 'Người dùng';
       resetView();
       await Promise.all([fetchConfig(), fetchRoles()]);
       buildRolesDropdown();
