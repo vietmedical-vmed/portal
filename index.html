@@ -238,7 +238,7 @@
     const DEFAULT_ITEMS = [
       { name: "Kế hoạch kinh doanh", url: "https://vietmedical-vmed.github.io/sale-target/", group: "Web Apps" },
       { name: "Đặt hàng & Mua hàng", url: "https://vietmedical-vmed.github.io/order/",       group: "Web Apps",
-        roles: ["admin", "manager", "area_manager", "sale_manager", "am", "product_manager", "pm", "purchasing"] },
+        roles: ["admin", "manager", "area_manager", "product_manager", "purchasing"] },
       { name: "Báo cáo Doanh thu",        url: "https://app.powerbi.com/view?r=eyJrIjoiOWU2MzliYzctOWViNC00Mjg0LWE3ZTAtM2VlNWNmMTQ3MWI5IiwidCI6IjU0ZTBkOWUxLTc1NmEtNDAzZi1iYjJlLWY4ZmQ1MGM3MzdhZSIsImMiOjEwfQ%3D%3D",
         group: "Dashboard", roles: ["admin", "manager"] },
       { name: "Báo cáo Doanh thu (BOD)",  url: "https://app.powerbi.com/view?r=eyJrIjoiYjQ3MWZkM2EtN2EwMi00ZTZmLWJmNzUtODhiNjhkMWRhODk5IiwidCI6IjU0ZTBkOWUxLTc1NmEtNDAzZi1iYjJlLWY4ZmQ1MGM3MzdhZSIsImMiOjEwfQ%3D%3D",
@@ -252,16 +252,19 @@
     const SUPABASE_REST = AUTH.base.replace('/functions/v1', '/rest/v1');
     const SB_HEADERS = { 'apikey': AUTH.anonKey, 'Authorization': 'Bearer ' + AUTH.anonKey, 'Content-Type': 'application/json' };
 
-    const KNOWN_ROLES = [
-      { value: 'admin',           label: 'Admin',           desc: 'Quản trị viên' },
-      { value: 'manager',         label: 'Manager',         desc: 'Quản lý' },
-      { value: 'area_manager',    label: 'Area Manager',    desc: 'Quản lý vùng' },
-      { value: 'sale_manager',    label: 'Sale Manager',    desc: 'Quản lý kinh doanh' },
-      { value: 'am',              label: 'AM',              desc: 'Account Manager' },
-      { value: 'product_manager', label: 'Product Manager', desc: 'Quản lý sản phẩm' },
-      { value: 'pm',              label: 'PM',              desc: 'Product Manager (viết tắt)' },
-      { value: 'purchasing',      label: 'Purchasing',      desc: 'Mua hàng' },
-    ];
+    const ROLE_ALIASES = { 'pm': 'product_manager', 'sale_manager': 'area_manager', 'am': 'area_manager' };
+
+    let KNOWN_ROLES = [];
+
+    async function fetchRoles() {
+      try {
+        const res = await fetch(SUPABASE_REST + '/users?select=role&schema=shared', { headers: SB_HEADERS });
+        const rows = await res.json();
+        const unique = [...new Set(rows.map(r => (r.role || '').toLowerCase()).filter(Boolean))];
+        const normalized = [...new Set(unique.map(r => ROLE_ALIASES[r] || r))];
+        KNOWN_ROLES = normalized.sort().map(v => ({ value: v, label: v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), desc: '' }));
+      } catch (e) { console.error('Lấy roles thất bại', e); }
+    }
 
     let cachedItems = null;
 
@@ -300,7 +303,7 @@
     /* =================================================== */
 
     const $ = s => document.querySelector(s);
-    const roleOf = u => String((u && u.role) || '').toLowerCase();
+    const roleOf = u => { const r = String((u && u.role) || '').toLowerCase(); return ROLE_ALIASES[r] || r; };
     let currentUser = null;
     let inConfigMode = false;
 
@@ -368,7 +371,7 @@
     function buildNav(user) {
       const role = roleOf(user);
       const allItems = getItems();
-      const items = allItems.filter(it => !it.roles || it.roles.map(r => r.toLowerCase()).includes(role));
+      const items = allItems.filter(it => !it.roles || it.roles.map(r => { const lo = r.toLowerCase(); return ROLE_ALIASES[lo] || lo; }).includes(role));
       const isAdmin = role === 'admin';
 
       const nav = $('#nav'); nav.innerHTML = '';
@@ -403,7 +406,8 @@
       $('#app').classList.toggle('nav-collapsed', localStorage.getItem('vmed_nav_collapsed') === '1');
       $('#uName').textContent = user.ho_ten || user.ho_va_ten || user.username || 'Người dùng';
       resetView();
-      await fetchConfig();
+      await Promise.all([fetchConfig(), fetchRoles()]);
+      buildRolesDropdown();
       buildNav(user);
     }
 
@@ -531,7 +535,6 @@
         '<span class="ms-role-desc">' + r.desc + '</span></label>'
       ).join('');
     }
-    buildRolesDropdown();
 
     function getSelectedRoles() {
       return [...$('#cfgRolesDrop').querySelectorAll('input:checked')].map(cb => cb.value);
