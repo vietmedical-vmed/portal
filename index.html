@@ -15,20 +15,21 @@
     html, body { height: 100%; margin: 0; font-family: "Segoe UI", system-ui, sans-serif; color: var(--text); }
 
     /* ===== Login gate ===== */
-    #gate { position: fixed; inset: 0; z-index: 100; background: linear-gradient(135deg,#1e3a8a,#1f2937);
-            display: flex; align-items: center; justify-content: center; }
-    #gate .card { background: #fff; border-radius: 12px; padding: 32px 28px; width: 340px; box-shadow: 0 20px 60px rgba(0,0,0,.3); }
-    #gate h2 { margin: 0 0 4px; font-size: 20px; }
-    #gate p.sub { margin: 0 0 22px; color: var(--muted); font-size: 13px; }
-    #gate label { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 5px; }
-    #gate input { width: 100%; padding: 10px 12px; border: 1px solid var(--border); border-radius: 7px; font-size: 14px; }
-    #gate input:focus { outline: none; border-color: var(--sidebar-active); }
-    #gate button { width: 100%; margin-top: 20px; padding: 11px; border: 0; border-radius: 7px;
-                   background: var(--sidebar-active); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; }
-    #gate button:disabled { opacity: .6; cursor: default; }
-    #gateErr { color: #dc2626; font-size: 13px; margin-top: 12px; min-height: 18px; }
-    #gateCredit { position: absolute; bottom: 20px; left: 0; right: 0; text-align: center;
-                  color: rgba(255,255,255,.7); font-size: 12px; letter-spacing: .02em; }
+    #gate { position: fixed; inset: 0; z-index: 100; background: #f0f2f5;
+            display: flex; flex-direction: column; align-items: center; justify-content: center; }
+    #gate .card { background: #fff; border-radius: 8px; padding: 24px; width: 360px;
+                  box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.1); border: 1px solid #dadde1; }
+    #gate h2 { margin: 0 0 20px; font-size: 18px; font-weight: 700; text-align: center; text-transform: uppercase; }
+    #gate label.field { display: block; font-size: 12px; color: var(--muted); margin: 12px 0 5px; }
+    #gate input[type="text"], #gate input[type="password"] { width: 100%; padding: 8px 12px; border: 1px solid #dadde1; border-radius: 6px; font-size: 14px; box-sizing: border-box; margin-bottom: 10px; }
+    #gate input:focus { outline: none; border-color: #1877f2; }
+    #gate .remember { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #65676b; cursor: pointer; margin-top: 2px; }
+    #gate button[type="submit"] { width: 100%; margin-top: 16px; padding: 8px 12px; border: 0; border-radius: 6px;
+                   background: #1877f2; color: #fff; font-size: 15px; font-weight: 700; cursor: pointer; }
+    #gate button[type="submit"]:disabled { opacity: .6; cursor: default; }
+    #gateErr { color: #fa383e; font-size: 12px; margin-top: 12px; min-height: 18px; }
+    #gateCredit { margin-top: 24px; text-align: center;
+                  color: #8a8d91; font-size: 11px; }
 
     /* ===== App ===== */
     .app { display: flex; height: 100vh; overflow: hidden; }
@@ -126,14 +127,13 @@
   <!-- ============ LOGIN GATE ============ -->
   <div id="gate">
     <form class="card" id="gateForm">
-      <img src="logo.png" alt="VietMedical" style="height:48px;display:block;margin:0 auto 12px">
-      <h2>Khối Ngoại Khoa Portal</h2>
-      <label>Tên đăng nhập</label>
-      <input id="gUser" autocomplete="username" autofocus />
-      <label>Mật khẩu</label>
-      <input id="gPass" type="password" autocomplete="current-password" />
-      <button id="gBtn" type="submit">Đăng nhập</button>
+      <img src="logo.png" alt="VietMedical" style="height:48px;display:block;margin:0 auto 24px">
+      <h2>KHỐI NGOẠI KHOA PORTAL</h2>
+      <input id="gUser" type="text" placeholder="Tài khoản" autocomplete="username" autofocus />
+      <input id="gPass" type="password" placeholder="Mật khẩu" autocomplete="current-password" />
+      <label class="remember"><input type="checkbox" id="gRemember" checked> Ghi nhớ đăng nhập trên thiết bị này</label>
       <div id="gateErr"></div>
+      <button id="gBtn" type="submit">Đăng nhập</button>
     </form>
     <div id="gateCredit">Designed and developed by Do Hoang Giang</div>
   </div>
