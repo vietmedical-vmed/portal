@@ -134,6 +134,22 @@
       <label class="remember"><input type="checkbox" id="gRemember" checked> Ghi nhớ đăng nhập trên thiết bị này</label>
       <div id="gateErr"></div>
       <button id="gBtn" type="submit">Đăng nhập</button>
+      <div style="margin-top:14px;text-align:center">
+        <button type="button" id="toGatePw" style="background:none;border:none;color:#1877f2;font-size:13px;cursor:pointer;padding:0">Đổi mật khẩu</button>
+      </div>
+    </form>
+    <form class="card" id="gatePwForm" style="display:none">
+      <img src="logo.png" alt="VietMedical" style="height:48px;display:block;margin:0 auto 24px">
+      <h2>ĐỔI MẬT KHẨU</h2>
+      <input id="gpUser" type="text" placeholder="Tài khoản" autocomplete="username" />
+      <input id="gpOld" type="password" placeholder="Mật khẩu hiện tại" autocomplete="current-password" />
+      <input id="gpNew" type="password" placeholder="Mật khẩu mới (tối thiểu 6 ký tự)" autocomplete="new-password" minlength="6" />
+      <input id="gpNew2" type="password" placeholder="Nhập lại mật khẩu mới" autocomplete="new-password" minlength="6" />
+      <div id="gatePwErr"></div>
+      <button id="gpBtn" type="submit">Đổi mật khẩu</button>
+      <div style="margin-top:14px;text-align:center">
+        <button type="button" id="backToLogin" style="background:none;border:none;color:#1877f2;font-size:13px;cursor:pointer;padding:0">Quay lại đăng nhập</button>
+      </div>
     </form>
     <div id="gateCredit">Designed and developed by Do Hoang Giang</div>
   </div>
@@ -725,6 +741,38 @@
       } catch (err) {
         $('#gateErr').textContent = err.message || 'Đăng nhập thất bại';
       } finally { btn.disabled = false; }
+    });
+    $('#toGatePw').addEventListener('click', () => {
+      $('#gateForm').style.display = 'none';
+      $('#gatePwForm').style.display = '';
+      $('#gpUser').focus();
+    });
+    $('#backToLogin').addEventListener('click', () => {
+      $('#gatePwForm').style.display = 'none';
+      $('#gateForm').style.display = '';
+      $('#gUser').focus();
+    });
+    $('#gatePwForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const btn = $('#gpBtn'); btn.disabled = true; $('#gatePwErr').textContent = '';
+      const u = $('#gpUser').value.trim(), oldP = $('#gpOld').value, newP = $('#gpNew').value, newP2 = $('#gpNew2').value;
+      if (!u || !oldP || !newP || !newP2) { $('#gatePwErr').textContent = 'Vui lòng nhập đầy đủ'; btn.disabled = false; return; }
+      if (newP !== newP2) { $('#gatePwErr').textContent = 'Xác nhận mật khẩu không khớp'; btn.disabled = false; return; }
+      if (newP.length < 6) { $('#gatePwErr').textContent = 'Mật khẩu mới tối thiểu 6 ký tự'; btn.disabled = false; return; }
+      try {
+        const res = await fetch(AUTH.base + AUTH.loginPath, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + AUTH.anonKey, 'apikey': AUTH.anonKey },
+          body: JSON.stringify({ username: u, password: oldP, newPassword: newP }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.ok === false) {
+          const map = { invalid: 'Sai tài khoản hoặc mật khẩu', weak_password: 'Mật khẩu mới tối thiểu 6 ký tự', same_password: 'Mật khẩu mới phải khác mật khẩu cũ' };
+          throw new Error(map[data.error] || data.error || 'Đổi mật khẩu thất bại');
+        }
+        alert('Đổi mật khẩu thành công! Đăng nhập lại bằng mật khẩu mới.');
+        $('#backToLogin').click();
+      } catch (err) { $('#gatePwErr').textContent = err.message; }
+      finally { btn.disabled = false; }
     });
     $('#logout').addEventListener('click', logout);
     $('#changePw').addEventListener('click', openPwModal);
