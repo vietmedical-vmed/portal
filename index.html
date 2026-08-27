@@ -258,7 +258,7 @@
 
     async function fetchRoles() {
       try {
-        const res = await fetch(SUPABASE_REST + '/users?select=role', { headers: { ...SB_HEADERS, 'Accept-Profile': 'shared' } });
+        const res = await fetch(SUPABASE_REST + '/rpc/get_distinct_roles', { method: 'POST', headers: SB_HEADERS });
         const rows = await res.json();
         const unique = [...new Set(rows.map(r => (r.role || '').toLowerCase()).filter(Boolean))];
         const normalized = [...new Set(unique.map(r => ROLE_ALIASES[r] || r))];
