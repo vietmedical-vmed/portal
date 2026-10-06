@@ -818,7 +818,7 @@
     let usrFilter = { q: '', role: '', mien: '', bu: '', active: '', page: 1 };
     let usrRows = [];
     let usrTotal = 0;
-    const USR_PAGE_SIZE = 20;
+    const USR_PAGE_SIZE = 10;
 
     async function adminApi(action, payload = {}) {
       const res = await fetch(USERS_API, {
