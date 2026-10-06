@@ -124,6 +124,33 @@
     .ms-drop input[type="checkbox"] { accent-color: var(--sidebar-active); width: 16px; height: 16px; flex-shrink: 0; }
     .ms-drop .ms-role-name { font-weight: 500; }
     .ms-drop .ms-role-desc { color: var(--muted); font-size: 11px; margin-left: auto; }
+    .ms-drop .ms-empty { padding: 10px 12px; font-size: 12px; color: var(--muted); }
+
+    /* ===== Quản lý tài khoản ===== */
+    .usr-toolbar { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; align-items: center; }
+    .usr-toolbar input, .usr-toolbar select { padding: 7px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px; background: #fff; }
+    .usr-toolbar input { width: 240px; }
+    .usr-toolbar .spacer { flex: 1; }
+    .usr-notice { display: flex; align-items: center; gap: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; }
+    .usr-notice code { background: #fff; padding: 1px 6px; border-radius: 4px; }
+    .usr-notice .close { margin-left: auto; cursor: pointer; color: #047857; }
+    .cfg-table tr.locked td { color: #9ca3af; }
+    .status { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; }
+    .status.on { background: #dcfce7; color: #166534; }
+    .status.off { background: #f3f4f6; color: #6b7280; }
+    .usr-pager { display: flex; justify-content: space-between; align-items: center; margin-top: 12px; font-size: 13px; color: var(--muted); }
+    .usr-pager .btn:disabled { opacity: .5; cursor: default; }
+    .usr-modal .modal-card { width: 600px; max-width: calc(100vw - 32px); max-height: 92vh; overflow-y: auto; overflow-x: hidden; }
+    @media (max-width: 560px) { .usr-modal .field-row { flex-direction: column; gap: 0; } }
+    .usr-modal .modal-card select, .usr-modal .modal-card .ro { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 7px; font-size: 14px; background: #fff; }
+    .usr-modal .modal-card .ro { background: #f3f4f6; color: var(--muted); min-height: 38px; }
+    .usr-modal .modal-card input[readonly] { background: #f3f4f6; color: var(--muted); }
+    .usr-modal .field-note { font-size: 11px; min-height: 14px; margin-top: 3px; }
+    .usr-modal .field-note.ok { color: #16a34a; }
+    .usr-modal .field-note.err { color: #dc2626; }
+    .usr-section { margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--border); font-size: 12px; font-weight: 600; color: var(--text); text-transform: uppercase; letter-spacing: .03em; }
+    .usr-summary { margin-top: 14px; padding: 10px 12px; background: #eff6ff; border-radius: 7px; font-size: 12px; color: #1e3a8a; line-height: 1.6; }
+    .usr-msg { font-size: 13px; margin-top: 10px; min-height: 18px; color: #dc2626; }
   </style>
 </head>
 <body>
@@ -240,6 +267,70 @@
       <div class="modal-actions">
         <button type="button" class="btn" id="cfgCancel">Huỷ</button>
         <button type="submit" class="btn primary">Lưu</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ============ MODAL TẠO/SỬA TÀI KHOẢN ============ -->
+  <div class="modal-overlay hidden cfg-modal usr-modal" id="usrModal">
+    <form class="modal-card" id="usrForm" autocomplete="off">
+      <h3 id="usrModalTitle">Tạo tài khoản</h3>
+      <p class="msub">Lưu vào shared.users — dùng chung cho mọi app</p>
+      <div class="field-row">
+        <div>
+          <label>Tài khoản <span class="hint">(*)</span></label>
+          <input id="usrUsername" placeholder="VD: nguyenvana" autocomplete="off" />
+          <div class="field-note" id="usrUserNote"></div>
+        </div>
+        <div>
+          <label>Role <span class="hint">(*)</span></label>
+          <select id="usrRole"></select>
+        </div>
+      </div>
+      <div class="field-row">
+        <div>
+          <label>Họ và tên <span class="hint">(*)</span></label>
+          <input id="usrName" placeholder="VD: Nguyễn Văn A" />
+        </div>
+        <div>
+          <label>Email</label>
+          <input id="usrEmail" type="email" placeholder="VD: a@vietmedical.vn" />
+        </div>
+      </div>
+      <div class="field-row" id="usrPwRow">
+        <div>
+          <label>Mật khẩu <span class="hint">(*) tối thiểu 6 ký tự</span></label>
+          <input id="usrPw" type="password" autocomplete="new-password" />
+        </div>
+        <div>
+          <label>Nhập lại mật khẩu <span class="hint">(*)</span></label>
+          <input id="usrPw2" type="password" autocomplete="new-password" />
+        </div>
+      </div>
+      <div class="usr-section">Phân quyền dữ liệu</div>
+      <div id="usrPerm"></div>
+      <div class="usr-summary" id="usrSummary"></div>
+      <div class="usr-msg" id="usrMsg"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="usrCancel">Huỷ</button>
+        <button type="submit" class="btn primary" id="usrSave">Lưu</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- ============ MODAL RESET MẬT KHẨU ============ -->
+  <div class="modal-overlay hidden" id="usrPwModal">
+    <form class="modal-card" id="usrPwForm">
+      <h3>Reset mật khẩu</h3>
+      <p class="msub" id="usrPwSub"></p>
+      <label>Mật khẩu mới</label>
+      <input id="usrPwNew" type="password" autocomplete="new-password" />
+      <label>Nhập lại mật khẩu mới</label>
+      <input id="usrPwNew2" type="password" autocomplete="new-password" />
+      <div class="usr-msg" id="usrPwMsg"></div>
+      <div class="modal-actions">
+        <button type="button" class="btn" id="usrPwCancel">Huỷ</button>
+        <button type="submit" class="btn primary" id="usrPwSave">Lưu</button>
       </div>
     </form>
   </div>
@@ -379,8 +470,7 @@
       f.src = 'about:blank';
       f.removeAttribute('src');
       f.style.display = '';
-      const cp = document.getElementById('configPanel');
-      if (cp) cp.remove();
+      closeAdminPanels();
       $('#placeholder').style.display = 'flex';
       $('#placeholder').innerHTML =
         '<h2>👋 Chào mừng</h2><p>Chọn một app hoặc dashboard ở menu bên trái để bắt đầu.</p>';
@@ -406,6 +496,11 @@
         cfgEl.innerHTML = '<span class="dot"></span>Cấu hình Portal';
         cfgEl.onclick = () => openConfigPanel();
         nav.appendChild(cfgEl);
+        const usrEl = document.createElement('div');
+        usrEl.className = 'nav-item'; usrEl.dataset.i = '__users__';
+        usrEl.innerHTML = '<span class="dot"></span>Quản lý tài khoản';
+        usrEl.onclick = () => openUsersPanel();
+        nav.appendChild(usrEl);
       }
 
       const groups = {};
@@ -440,8 +535,7 @@
 
     function selectItem(items, i) {
       inConfigMode = false;
-      const cp = document.getElementById('configPanel');
-      if (cp) cp.remove();
+      closeAdminPanels();
       const it = items[i]; if (!it) return;
       document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.i == i));
       $('#title').textContent = it.name;
@@ -463,6 +557,8 @@
       inConfigMode = true;
       document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.i === '__cfg__'));
       $('#title').textContent = 'Cấu hình Portal';
+      const up = document.getElementById('usersPanel');
+      if (up) up.remove();
       $('#openNew').style.display = 'none';
       $('#placeholder').style.display = 'none';
       $('#frame').style.display = 'none';
@@ -522,6 +618,10 @@
     }
 
     function escHtml(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function escAttr(s) { return escHtml(s).replace(/"/g, '&quot;'); }
+    function closeAdminPanels() {
+      ['configPanel', 'usersPanel'].forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
+    }
     function truncUrl(u) { try { const url = new URL(u); return url.hostname + (url.pathname.length > 30 ? url.pathname.slice(0, 27) + '...' : url.pathname); } catch(e) { return u.slice(0, 50); } }
 
     // --- Drag & Drop sắp xếp ---
@@ -707,6 +807,475 @@
       reader.readAsText(file);
       input.value = '';
     }
+
+    /* ================== QUẢN LÝ TÀI KHOẢN ==================
+       Mọi thao tác đi qua Edge Function admin-users (verify token + quyền admin ở server).
+       Field hiển thị theo role lấy từ `profiles` server trả về (supabase/functions/admin-users/roles.ts).
+    */
+    const USERS_API = AUTH.base + '/admin-users';
+    const USERNAME_RE = /^[a-z0-9._]{3,32}$/;
+    let usrOpts = null;
+    let usrFilter = { q: '', role: '', mien: '', bu: '', active: '', page: 1 };
+    let usrRows = [];
+    let usrTotal = 0;
+    const USR_PAGE_SIZE = 20;
+
+    async function adminApi(action, payload = {}) {
+      const res = await fetch(USERS_API, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer ' + AUTH.anonKey,
+          'apikey': AUTH.anonKey,
+          'x-portal-token': localStorage.getItem(AUTH.tokenKey) || '',
+        },
+        body: JSON.stringify({ action, ...payload }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (data.error === 'token_expired') {
+        alert('Phiên đăng nhập đã hết hạn, vui lòng đăng nhập lại.');
+        logout();
+        throw new Error('Phiên đăng nhập đã hết hạn');
+      }
+      if (!res.ok || data.ok === false) {
+        const map = { forbidden: 'Bạn không có quyền quản trị tài khoản', username_taken: 'Tài khoản đã tồn tại' };
+        throw new Error(data.message || map[data.error] || data.error || 'Thao tác thất bại');
+      }
+      return data;
+    }
+
+    const profileOf = role => (usrOpts && usrOpts.profiles[role]) || (usrOpts && usrOpts.generic_profile) || {};
+    const roleLabel = role => (usrOpts && usrOpts.profiles[role] && usrOpts.profiles[role].label) || role.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    const splitList = v => String(v || '').split(',').map(x => x.trim()).filter(Boolean);
+    const buName = code => { const b = usrOpts && usrOpts.bu.find(x => x.bu_code === code); return b ? b.ten_bu : code; };
+    const mienName = code => { const m = usrOpts && usrOpts.mien.find(x => x.ma_mien === code); return m ? m.ten_mien : code; };
+    const buText = bu => (!bu || String(bu).toLowerCase() === 'all') ? 'Tất cả' : splitList(bu).map(buName).join(', ');
+    const mienText = m => (!m || m === 'BOTH' || m === 'ALL') ? 'Tất cả' : mienName(m);
+
+    async function openUsersPanel() {
+      inConfigMode = false;
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.i === '__users__'));
+      $('#title').textContent = 'Quản lý tài khoản';
+      $('#openNew').style.display = 'none';
+      $('#placeholder').style.display = 'none';
+      $('#frame').style.display = 'none';
+      closeAdminPanels();
+
+      const up = document.createElement('div');
+      up.id = 'usersPanel';
+      up.className = 'config-panel';
+      up.innerHTML = '<h2>Quản lý tài khoản</h2><p class="csub">Đang tải danh mục...</p>';
+      document.querySelector('.frame-wrap').appendChild(up);
+
+      try {
+        if (!usrOpts) usrOpts = await adminApi('options');
+      } catch (e) {
+        up.innerHTML = '<h2>Quản lý tài khoản</h2><p class="csub" style="color:#dc2626">' + escHtml(e.message) + '</p>';
+        return;
+      }
+      renderUsersShell(up);
+      loadUsers();
+    }
+
+    function renderUsersShell(up) {
+      const opt = (v, l, cur) => '<option value="' + escAttr(v) + '"' + (v === cur ? ' selected' : '') + '>' + escHtml(l) + '</option>';
+      const f = usrFilter;
+      let html = '<h2>Quản lý tài khoản</h2>';
+      html += '<p class="csub">Tạo, sửa, reset mật khẩu, khoá/mở tài khoản dùng chung cho mọi app.</p>';
+      html += '<div id="usrNotice"></div>';
+      html += '<div class="usr-toolbar">';
+      html += '<input id="usrQ" placeholder="Tìm tài khoản, họ tên, email..." value="' + escAttr(f.q) + '" />';
+      html += '<select id="usrFRole">' + opt('', 'Tất cả role', f.role) + usrOpts.roles.map(r => opt(r, roleLabel(r), f.role)).join('') + '</select>';
+      html += '<select id="usrFMien">' + opt('', 'Tất cả miền', f.mien) + opt('BOTH', 'BOTH (toàn quốc)', f.mien) + usrOpts.mien.map(m => opt(m.ma_mien, m.ten_mien, f.mien)).join('') + '</select>';
+      html += '<select id="usrFBu">' + opt('', 'Tất cả BU', f.bu) + usrOpts.bu.map(b => opt(b.bu_code, b.ten_bu, f.bu)).join('') + '</select>';
+      html += '<select id="usrFActive">' + opt('', 'Mọi trạng thái', f.active) + opt('true', 'Đang hoạt động', f.active) + opt('false', 'Đã khoá', f.active) + '</select>';
+      html += '<span class="spacer"></span>';
+      html += '<button class="btn primary" id="usrAdd">+ Tạo tài khoản</button>';
+      html += '</div>';
+      html += '<div id="usrTable"></div>';
+      up.innerHTML = html;
+
+      let qTimer = null;
+      $('#usrQ').addEventListener('input', e => {
+        clearTimeout(qTimer);
+        qTimer = setTimeout(() => { usrFilter.q = e.target.value.trim(); usrFilter.page = 1; loadUsers(); }, 300);
+      });
+      [['#usrFRole', 'role'], ['#usrFMien', 'mien'], ['#usrFBu', 'bu'], ['#usrFActive', 'active']].forEach(([sel, key]) => {
+        $(sel).addEventListener('change', e => { usrFilter[key] = e.target.value; usrFilter.page = 1; loadUsers(); });
+      });
+      $('#usrAdd').addEventListener('click', () => openUsrModal(null));
+    }
+
+    async function loadUsers() {
+      const box = $('#usrTable'); if (!box) return;
+      box.innerHTML = '<div class="cfg-empty">Đang tải...</div>';
+      const f = usrFilter;
+      try {
+        const data = await adminApi('list', {
+          q: f.q, role: f.role, mien: f.mien, bu: f.bu,
+          active: f.active === '' ? undefined : f.active === 'true',
+          page: f.page, page_size: USR_PAGE_SIZE,
+        });
+        usrRows = data.rows; usrTotal = data.total;
+        renderUsersTable();
+      } catch (e) {
+        box.innerHTML = '<div class="cfg-empty" style="color:#dc2626">' + escHtml(e.message) + '</div>';
+      }
+    }
+
+    function renderUsersTable() {
+      const box = $('#usrTable'); if (!box) return;
+      if (!usrRows.length) { box.innerHTML = '<div class="cfg-empty">Không có tài khoản nào khớp bộ lọc.</div>'; return; }
+      const td = (v, title) => '<td' + (title ? ' title="' + escAttr(title) + '"' : '') + '>' + escHtml(v || '') + '</td>';
+      let html = '<table class="cfg-table"><thead><tr>';
+      html += '<th>Tài khoản</th><th>Họ và tên</th><th>Role</th><th>BU</th><th>Miền</th><th>Scope</th><th>Nhóm SP</th><th>Trạng thái</th><th style="width:110px">Thao tác</th>';
+      html += '</tr></thead><tbody>';
+      usrRows.forEach((u, i) => {
+        const on = u.active !== false;
+        html += '<tr class="' + (on ? '' : 'locked') + '">';
+        html += '<td><strong>' + escHtml(u.username) + '</strong></td>';
+        html += td(u.ho_va_ten, u.email);
+        html += '<td><span class="badge">' + escHtml(roleLabel(u.role || '')) + '</span></td>';
+        html += td(buText(u.bu), buText(u.bu));
+        html += td(mienText(u.mien));
+        html += td(u.scope, u.scope);
+        html += td(u.nhom_san_pham, u.nhom_san_pham);
+        html += '<td><span class="status ' + (on ? 'on">Hoạt động' : 'off">Đã khoá') + '</span></td>';
+        html += '<td class="actions-cell">';
+        html += '<button title="Sửa" data-act="edit" data-i="' + i + '">✏️</button>';
+        html += '<button title="Reset mật khẩu" data-act="pw" data-i="' + i + '">🔑</button>';
+        html += '<button title="' + (on ? 'Khoá' : 'Mở khoá') + '" data-act="toggle" data-i="' + i + '">' + (on ? '🔒' : '🔓') + '</button>';
+        html += '</td></tr>';
+      });
+      html += '</tbody></table>';
+      const pages = Math.max(1, Math.ceil(usrTotal / USR_PAGE_SIZE));
+      html += '<div class="usr-pager"><span>' + usrTotal + ' tài khoản</span><span>';
+      html += '<button class="btn" data-act="prev"' + (usrFilter.page <= 1 ? ' disabled' : '') + '>‹</button> ';
+      html += 'Trang ' + usrFilter.page + '/' + pages + ' ';
+      html += '<button class="btn" data-act="next"' + (usrFilter.page >= pages ? ' disabled' : '') + '>›</button>';
+      html += '</span></div>';
+      box.innerHTML = html;
+
+      box.onclick = e => {
+        const b = e.target.closest('button[data-act]'); if (!b || b.disabled) return;
+        const u = usrRows[+b.dataset.i];
+        if (b.dataset.act === 'edit') openUsrModal(u);
+        else if (b.dataset.act === 'pw') openUsrPwModal(u);
+        else if (b.dataset.act === 'toggle') toggleUserActive(u);
+        else if (b.dataset.act === 'prev') { usrFilter.page--; loadUsers(); }
+        else if (b.dataset.act === 'next') { usrFilter.page++; loadUsers(); }
+      };
+    }
+
+    function showUsrNotice(html) {
+      const n = $('#usrNotice'); if (!n) return;
+      n.innerHTML = html ? '<div class="usr-notice">' + html + '<span class="close" title="Đóng">✕</span></div>' : '';
+      const c = n.querySelector('.close'); if (c) c.onclick = () => showUsrNotice('');
+    }
+
+    async function toggleUserActive(u) {
+      const on = u.active !== false;
+      if (!confirm((on ? 'Khoá' : 'Mở khoá') + ' tài khoản "' + u.username + '"?' + (on ? '\nPhiên đăng nhập hiện tại của user vẫn dùng được tối đa 2 giờ.' : ''))) return;
+      try {
+        await adminApi('set_active', { username: u.username, active: !on });
+        showUsrNotice('Đã ' + (on ? 'khoá' : 'mở khoá') + ' tài khoản <code>' + escHtml(u.username) + '</code>.');
+        loadUsers();
+      } catch (e) { alert(e.message); }
+    }
+
+    // ---------- Modal tạo/sửa ----------
+    // usrState giữ lựa chọn phân quyền; renderPerm() vẽ lại control theo profile của role.
+    let usrEditing = null;
+    let usrState = null;
+    let usrCheckTimer = null;
+
+    function openUsrModal(u) {
+      usrEditing = u;
+      const isNew = !u;
+      $('#usrModalTitle').textContent = isNew ? 'Tạo tài khoản' : 'Sửa tài khoản';
+      $('#usrUsername').value = isNew ? '' : u.username;
+      $('#usrUsername').readOnly = !isNew;
+      $('#usrUserNote').textContent = ''; $('#usrUserNote').className = 'field-note';
+      $('#usrName').value = isNew ? '' : (u.ho_va_ten || '');
+      $('#usrEmail').value = isNew ? '' : (u.email || '');
+      $('#usrPw').value = ''; $('#usrPw2').value = '';
+      $('#usrPwRow').style.display = isNew ? '' : 'none';
+      $('#usrMsg').textContent = '';
+
+      const role = isNew ? '' : String(u.role || '').toLowerCase();
+      $('#usrRole').innerHTML = '<option value="">— Chọn role —</option>' +
+        usrOpts.roles.map(r => '<option value="' + escAttr(r) + '"' + (r === role ? ' selected' : '') + '>' + escHtml(roleLabel(r)) + '</option>').join('');
+
+      const bu = isNew ? [] : (String(u.bu || '').toLowerCase() === 'all' ? [] : splitList(u.bu));
+      usrState = {
+        bu,
+        mien: isNew ? '' : (u.mien === 'ALL' ? 'BOTH' : (u.mien || '')),
+        scopeList: isNew ? [] : splitList(u.scope),
+        scopeText: isNew ? '' : (u.scope || ''),
+        ps: isNew ? '' : (u.scope || ''),
+        nhom: isNew ? [] : splitList(u.nhom_san_pham),
+      };
+      renderPerm();
+      $('#usrModal').classList.remove('hidden');
+      (isNew ? $('#usrUsername') : $('#usrName')).focus();
+    }
+
+    function closeUsrModal() { $('#usrModal').classList.add('hidden'); }
+
+    function msWidget(items, selected, placeholder, onChange) {
+      const wrap = document.createElement('div'); wrap.className = 'ms-wrap';
+      const trig = document.createElement('div'); trig.className = 'ms-trigger';
+      const drop = document.createElement('div'); drop.className = 'ms-drop';
+      drop.innerHTML = items.length
+        ? items.map(it => '<label><input type="checkbox" value="' + escAttr(it.value) + '"' + (selected.includes(it.value) ? ' checked' : '') + ' /><span>' + escHtml(it.label) + '</span></label>').join('')
+        : '<div class="ms-empty">Không có lựa chọn</div>';
+      const labelOf = v => { const it = items.find(x => x.value === v); return it ? it.label : v; };
+      const paint = () => {
+        const sel = [...drop.querySelectorAll('input:checked')].map(c => c.value);
+        trig.innerHTML = sel.length ? sel.map(v => '<span class="ms-tag">' + escHtml(labelOf(v)) + '</span>').join('') : '<span class="ms-ph">' + escHtml(placeholder) + '</span>';
+        return sel;
+      };
+      trig.addEventListener('click', e => {
+        e.stopPropagation();
+        const willOpen = !drop.classList.contains('show');
+        document.querySelectorAll('#usrModal .ms-drop.show').forEach(d => d.classList.remove('show'));
+        drop.classList.toggle('show', willOpen);
+        trig.classList.toggle('open', willOpen);
+      });
+      drop.addEventListener('click', e => e.stopPropagation());
+      drop.addEventListener('change', () => onChange(paint()));
+      paint();
+      wrap.append(trig, drop);
+      return wrap;
+    }
+
+    function field(label, hint) {
+      const d = document.createElement('div');
+      d.innerHTML = '<label>' + escHtml(label) + (hint ? ' <span class="hint">' + escHtml(hint) + '</span>' : '') + '</label>';
+      return d;
+    }
+    function roBox(text) { const d = document.createElement('div'); d.className = 'ro'; d.textContent = text; return d; }
+    function selectBox(items, cur, placeholder, onChange) {
+      const s = document.createElement('select');
+      s.innerHTML = (placeholder ? '<option value="">' + escHtml(placeholder) + '</option>' : '') +
+        items.map(it => '<option value="' + escAttr(it.value) + '"' + (it.value === cur ? ' selected' : '') + '>' + escHtml(it.label) + '</option>').join('');
+      s.addEventListener('change', () => onChange(s.value));
+      return s;
+    }
+
+    function psRowOf(ps) { return usrOpts.ps.find(p => p.ps.toLowerCase() === String(ps || '').toLowerCase()); }
+
+    // Nhóm SP hợp lệ theo BU đang chọn (rỗng = mọi BU)
+    function nhomItems() {
+      const p = profileOf($('#usrRole').value);
+      let bus = usrState.bu;
+      if (p.bu === 'all') bus = [];
+      if (p.bu === 'auto') { const r = psRowOf(usrState.ps); bus = r && r.bu_code ? [r.bu_code] : []; }
+      return [...new Set(usrOpts.nhom.filter(n => !bus.length || bus.includes(n.bu_code)).map(n => n.nhom_san_pham))]
+        .map(v => ({ value: v, label: v }));
+    }
+
+    function renderPerm() {
+      const role = $('#usrRole').value;
+      const box = $('#usrPerm'); box.innerHTML = '';
+      if (!role) { box.innerHTML = '<p class="msub" style="margin-top:10px">Chọn role để cấu hình phân quyền.</p>'; renderSummary(); return; }
+      const p = profileOf(role);
+      const st = usrState;
+      const buOpts = usrOpts.bu.map(b => ({ value: b.bu_code, label: b.ten_bu + (b.is_test ? ' (test)' : '') }));
+      const mienOpts = usrOpts.mien.map(m => ({ value: m.ma_mien, label: m.ten_mien }));
+
+      // Chuẩn hoá state khi đổi role
+      if (p.bu === 'single' && st.bu.length > 1) st.bu = st.bu.slice(0, 1);
+      if (p.mien === 'single' && st.mien === 'BOTH') st.mien = '';
+      if (p.mien === 'any' && !st.mien) st.mien = 'BOTH';
+      const allowedNhom = new Set(nhomItems().map(x => x.value));
+      st.scopeList = st.scopeList.filter(v => allowedNhom.has(v));
+      st.nhom = st.nhom.filter(v => allowedNhom.has(v));
+
+      // PS
+      if (p.scope === 'ps') {
+        const f = field('PS', '(*) BU và miền lấy theo danh mục PS');
+        const items = usrOpts.ps.filter(x => x.active || x.ps === st.ps)
+          .map(x => ({ value: x.ps, label: x.ps + (x.ten_ps && x.ten_ps !== x.ps ? ' — ' + x.ten_ps : '') + (x.active ? '' : ' (inactive)') }));
+        f.appendChild(selectBox(items, st.ps, '— Chọn PS —', v => { st.ps = v; renderPerm(); }));
+        box.appendChild(f);
+      }
+
+      const row = document.createElement('div'); row.className = 'field-row';
+      // BU
+      const fb = field('BU', p.bu === 'multi' ? 'chọn nhiều, để trống = tất cả' : p.bu === 'single' ? '(*) chọn 1' : '');
+      if (p.bu === 'all') fb.appendChild(roBox('Tất cả'));
+      else if (p.bu === 'auto') { const r = psRowOf(st.ps); fb.appendChild(roBox(r ? buText(r.bu_code) : '—')); }
+      else if (p.bu === 'single') fb.appendChild(selectBox(buOpts, st.bu[0] || '', '— Chọn BU —', v => { st.bu = v ? [v] : []; renderPerm(); }));
+      else fb.appendChild(msWidget(buOpts, st.bu, 'Tất cả BU', sel => { st.bu = sel; renderNhom(); renderSummary(); }));
+      row.appendChild(fb);
+      // Miền
+      const fm = field('Miền', p.mien === 'single' ? '(*)' : '');
+      if (p.mien === 'both') fm.appendChild(roBox('Tất cả (BOTH)'));
+      else if (p.mien === 'auto') { const r = psRowOf(st.ps); fm.appendChild(roBox(r ? (r.mien_code ? mienName(r.mien_code) : '⚠ không xác định (' + (r.area || 'trống') + ')') : '—')); }
+      else {
+        const items = (p.mien === 'any' ? [{ value: 'BOTH', label: 'Tất cả (BOTH)' }] : []).concat(mienOpts);
+        fm.appendChild(selectBox(items, st.mien, p.mien === 'single' ? '— Chọn miền —' : '', v => { st.mien = v; renderPerm(); }));
+      }
+      row.appendChild(fm);
+      box.appendChild(row);
+
+      // Scope
+      if (p.scope === 'ten_mien') {
+        const f = field('Scope', 'tự điền theo miền');
+        f.appendChild(roBox(st.mien && st.mien !== 'BOTH' ? mienName(st.mien) : '—'));
+        box.appendChild(f);
+      } else if (p.scope === 'free') {
+        const f = field('Scope', 'nhập tự do');
+        const inp = document.createElement('input'); inp.value = st.scopeText;
+        inp.addEventListener('input', () => { st.scopeText = inp.value; renderSummary(); });
+        f.appendChild(inp); box.appendChild(f);
+      } else if (p.scope === 'nhom_sp') {
+        const f = field('Nhóm SP phụ trách (scope)', p.scopeRequired ? '(*) lọc theo BU' : 'tuỳ chọn, lọc theo BU');
+        f.id = 'usrScopeNhom'; box.appendChild(f);
+      }
+      // Nhóm SP thu hẹp
+      if (p.nhom === 'optional') {
+        const f = field('Nhóm SP (thu hẹp thêm)', 'tuỳ chọn, lọc theo BU');
+        f.id = 'usrNhomBox'; box.appendChild(f);
+      }
+      renderNhom();
+      renderSummary();
+    }
+
+    // Vẽ lại riêng 2 ô nhóm SP (khi đổi BU nhiều-chọn không vẽ lại cả form để dropdown BU không bị đóng)
+    function renderNhom() {
+      const st = usrState;
+      const items = nhomItems();
+      const allowed = new Set(items.map(x => x.value));
+      st.scopeList = st.scopeList.filter(v => allowed.has(v));
+      st.nhom = st.nhom.filter(v => allowed.has(v));
+      const put = (id, sel, ph, set) => {
+        const host = document.getElementById(id); if (!host) return;
+        const old = host.querySelector('.ms-wrap'); if (old) old.remove();
+        host.appendChild(msWidget(items, sel, ph, v => { set(v); renderSummary(); }));
+      };
+      put('usrScopeNhom', st.scopeList, 'Chọn nhóm SP...', v => { st.scopeList = v; });
+      put('usrNhomBox', st.nhom, 'Không thu hẹp', v => { st.nhom = v; });
+    }
+
+    function renderSummary() {
+      const role = $('#usrRole').value;
+      const el = $('#usrSummary');
+      if (!role) { el.style.display = 'none'; return; }
+      el.style.display = '';
+      const p = profileOf(role), st = usrState, r = psRowOf(st.ps);
+      const bu = p.bu === 'all' ? 'Tất cả' : p.bu === 'auto' ? (r ? buText(r.bu_code) : '—') : (st.bu.length ? st.bu.map(buName).join(', ') : 'Tất cả');
+      const mien = p.mien === 'both' ? 'Tất cả' : p.mien === 'auto' ? (r && r.mien_code ? mienName(r.mien_code) : '—') : mienText(st.mien);
+      const parts = ['<b>' + escHtml(roleLabel(role)) + '</b>', 'BU: ' + escHtml(bu), 'Miền: ' + escHtml(mien)];
+      if (p.scope === 'ps') parts.push('PS: ' + escHtml(st.ps || '—'));
+      if (p.scope === 'nhom_sp') parts.push('Nhóm SP: ' + escHtml(st.scopeList.join(', ') || (p.scopeRequired ? '—' : 'tất cả')));
+      if (p.scope === 'free' && st.scopeText) parts.push('Scope: ' + escHtml(st.scopeText));
+      if (p.nhom === 'optional' && st.nhom.length) parts.push('Chỉ nhóm: ' + escHtml(st.nhom.join(', ')));
+      el.innerHTML = 'Quyền hiệu lực — ' + parts.join(' · ');
+    }
+
+    function buildUserPayload() {
+      const role = $('#usrRole').value;
+      const p = profileOf(role), st = usrState;
+      const scope = p.scope === 'nhom_sp' ? st.scopeList : p.scope === 'ps' ? st.ps : p.scope === 'free' ? st.scopeText : '';
+      return {
+        username: $('#usrUsername').value.trim().toLowerCase(),
+        ho_va_ten: $('#usrName').value.trim(),
+        email: $('#usrEmail').value.trim(),
+        role,
+        bu: st.bu,
+        mien: st.mien,
+        scope,
+        nhom_san_pham: st.nhom,
+      };
+    }
+
+    $('#usrRole').addEventListener('change', () => renderPerm());
+    $('#usrUsername').addEventListener('input', () => {
+      clearTimeout(usrCheckTimer);
+      const note = $('#usrUserNote');
+      const v = $('#usrUsername').value.trim().toLowerCase();
+      note.className = 'field-note'; note.textContent = '';
+      if (!v) return;
+      if (!USERNAME_RE.test(v)) { note.className = 'field-note err'; note.textContent = '3–32 ký tự: a-z, 0-9, dấu chấm, gạch dưới'; return; }
+      usrCheckTimer = setTimeout(async () => {
+        try {
+          const r = await adminApi('check_username', { username: v });
+          if ($('#usrUsername').value.trim().toLowerCase() !== v) return;
+          note.className = 'field-note ' + (r.taken ? 'err' : 'ok');
+          note.textContent = r.taken ? '✗ Đã tồn tại' : '✓ Còn trống';
+        } catch (e) { /* bỏ qua, server sẽ check lại khi lưu */ }
+      }, 400);
+    });
+    $('#usrCancel').addEventListener('click', closeUsrModal);
+    $('#usrModal').addEventListener('click', e => {
+      if (e.target === $('#usrModal')) closeUsrModal();
+      document.querySelectorAll('#usrModal .ms-drop.show').forEach(d => d.classList.remove('show'));
+      document.querySelectorAll('#usrModal .ms-trigger.open').forEach(t => t.classList.remove('open'));
+    });
+    $('#usrForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const msg = $('#usrMsg'); msg.textContent = '';
+      const isNew = !usrEditing;
+      const user = buildUserPayload();
+      const p = profileOf(user.role);
+      const pw = $('#usrPw').value, pw2 = $('#usrPw2').value;
+      if (isNew && !USERNAME_RE.test(user.username)) { msg.textContent = 'Tài khoản 3–32 ký tự: a-z, 0-9, dấu chấm, gạch dưới'; return; }
+      if (!user.ho_va_ten) { msg.textContent = 'Nhập họ và tên'; return; }
+      if (!user.role) { msg.textContent = 'Chọn role'; return; }
+      if (p.scope === 'ps' && !user.scope) { msg.textContent = 'Chọn PS'; return; }
+      if (p.bu === 'single' && !user.bu.length) { msg.textContent = 'Chọn BU'; return; }
+      if (p.mien === 'single' && !user.mien) { msg.textContent = 'Chọn miền'; return; }
+      if (p.scope === 'nhom_sp' && p.scopeRequired && !user.scope.length) { msg.textContent = 'Chọn ít nhất 1 nhóm SP phụ trách'; return; }
+      if (isNew && pw.length < 6) { msg.textContent = 'Mật khẩu tối thiểu 6 ký tự'; return; }
+      if (isNew && pw !== pw2) { msg.textContent = 'Nhập lại mật khẩu không khớp'; return; }
+
+      $('#usrSave').disabled = true;
+      try {
+        if (isNew) {
+          await adminApi('create', { user, password: pw });
+          closeUsrModal();
+          showUsrNotice('Đã tạo tài khoản <code>' + escHtml(user.username) + '</code>. ' +
+            '<button class="btn" id="usrCopy">Copy thông tin đăng nhập</button>');
+          const c = $('#usrCopy');
+          if (c) c.onclick = () => navigator.clipboard.writeText('Tài khoản: ' + user.username + '\nMật khẩu: ' + pw)
+            .then(() => { c.textContent = 'Đã copy ✓'; }).catch(() => alert('Không copy được, hãy ghi lại thủ công.'));
+        } else {
+          await adminApi('update', { username: usrEditing.username, user });
+          closeUsrModal();
+          showUsrNotice('Đã cập nhật tài khoản <code>' + escHtml(usrEditing.username) + '</code>. Thay đổi phân quyền có hiệu lực từ lần đăng nhập tiếp theo.');
+        }
+        loadUsers();
+      } catch (err) { msg.textContent = err.message; }
+      finally { $('#usrSave').disabled = false; }
+    });
+
+    // ---------- Modal reset mật khẩu ----------
+    let usrPwTarget = null;
+    function openUsrPwModal(u) {
+      usrPwTarget = u;
+      $('#usrPwSub').textContent = 'Tài khoản: ' + u.username + (u.ho_va_ten ? ' — ' + u.ho_va_ten : '');
+      $('#usrPwNew').value = ''; $('#usrPwNew2').value = ''; $('#usrPwMsg').textContent = '';
+      $('#usrPwModal').classList.remove('hidden');
+      $('#usrPwNew').focus();
+    }
+    function closeUsrPwModal() { $('#usrPwModal').classList.add('hidden'); }
+    $('#usrPwCancel').addEventListener('click', closeUsrPwModal);
+    $('#usrPwModal').addEventListener('click', e => { if (e.target === $('#usrPwModal')) closeUsrPwModal(); });
+    $('#usrPwForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      const n1 = $('#usrPwNew').value, n2 = $('#usrPwNew2').value, msg = $('#usrPwMsg');
+      if (n1.length < 6) { msg.textContent = 'Mật khẩu tối thiểu 6 ký tự'; return; }
+      if (n1 !== n2) { msg.textContent = 'Nhập lại mật khẩu không khớp'; return; }
+      $('#usrPwSave').disabled = true;
+      try {
+        await adminApi('reset_password', { username: usrPwTarget.username, password: n1 });
+        closeUsrPwModal();
+        showUsrNotice('Đã reset mật khẩu cho <code>' + escHtml(usrPwTarget.username) + '</code>.');
+      } catch (err) { msg.textContent = err.message; }
+      finally { $('#usrPwSave').disabled = false; }
+    });
 
     // ---------- Đổi mật khẩu ----------
     // Dùng endpoint sale_target-login (đã hỗ trợ đổi mật khẩu, ghi vào bảng users chung).

@@ -1,0 +1,4 @@
+project_id = "site-view"
+
+[functions.admin-users]
+verify_jwt = false

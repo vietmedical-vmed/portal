@@ -9,6 +9,7 @@ Portal nội bộ tập trung các ứng dụng web và dashboard Power BI cho K
 - **Nhúng iframe** — mở app/dashboard ngay trong trang; nếu không nhúng được thì mở tab mới.
 - **Cấu hình Portal (Admin)** — thêm / sửa / xoá / kéo-thả sắp xếp các mục menu, xuất/nhập JSON.
 - **Đổi mật khẩu** — người dùng tự đổi mật khẩu ngay trên portal.
+- **Quản lý tài khoản (Admin)** — tạo, sửa, reset mật khẩu, khoá/mở tài khoản trong `shared.users`; field phân quyền hiển thị theo role.
 - **Responsive** — giao diện sidebar thu gọn, hoạt động trên nhiều kích thước màn hình.
 
 ## Công nghệ
@@ -24,7 +25,18 @@ Portal nội bộ tập trung các ứng dụng web và dashboard Power BI cho K
 
 ```
 ├── index.html      # Toàn bộ giao diện + logic (SPA đơn file)
+├── supabase/
+│   ├── migrations/             # SQL chạy tay trên SQL Editor
+│   └── functions/
+│       ├── _shared/            # auth.ts (token HMAC, sha256), cors.ts
+│       └── admin-users/        # API quản lý tài khoản; roles.ts = cấu hình field theo role
 └── .nojekyll       # Bỏ qua xử lý Jekyll trên GitHub Pages
+```
+
+Deploy Edge Function (chạy migration trong `supabase/migrations/` trước):
+
+```
+supabase functions deploy admin-users --no-verify-jwt --project-ref nrfxymnfmjhbsgpipvkb
 ```
 
 ## Triển khai
