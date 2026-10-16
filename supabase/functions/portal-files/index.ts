@@ -1,5 +1,5 @@
 // ════════════════════════════════════════════════════════════════════════
-// portal-files — file nhúng làm tab trên portal (Excel / PowerPoint / ảnh).
+// portal-files — file nhúng làm tab trên portal (Excel / PowerPoint / PDF / ảnh).
 //
 //   POST /functions/v1/portal-files
 //   headers: apikey, Authorization: Bearer <anon>, x-portal-token: <vmed_token>
@@ -27,7 +27,8 @@ const PATH_RE = /^files\/[0-9a-f-]{36}\.[a-z]{3,4}$/;
 const ROLE_ALIASES: Record<string, string> = { pm: "product_manager", sale_manager: "area_manager", am: "area_manager" };
 
 // Giới hạn theo Office Online viewer: Excel ≤ 5 MB, Word/PowerPoint ≤ 10 MB.
-const TYPES: Record<string, { kind: "excel" | "pptx" | "image"; mime: string; max: number }> = {
+const TYPES: Record<string, { kind: "excel" | "pptx" | "pdf" | "image"; mime: string; max: number }> = {
+  pdf:  { kind: "pdf",   mime: "application/pdf", max: 10 * MB },
   xlsx: { kind: "excel", mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", max: 5 * MB },
   xlsm: { kind: "excel", mime: "application/vnd.ms-excel.sheet.macroEnabled.12", max: 5 * MB },
   xls:  { kind: "excel", mime: "application/vnd.ms-excel", max: 5 * MB },
@@ -111,7 +112,7 @@ async function uploadUrl(db: SupabaseClient, b: Record<string, unknown>) {
   const name = String(b.name ?? "").trim();
   const ext = (name.match(/\.([a-z0-9]+)$/i)?.[1] ?? "").toLowerCase();
   const t = TYPES[ext];
-  if (!t) throw new HttpError(400, "bad_type", "Chỉ hỗ trợ Excel (.xlsx, .xlsm, .xls), PowerPoint (.pptx, .ppt) và ảnh (.png, .jpg, .gif, .webp)");
+  if (!t) throw new HttpError(400, "bad_type", "Chỉ hỗ trợ Excel (.xlsx, .xlsm, .xls), PowerPoint (.pptx, .ppt), PDF và ảnh (.png, .jpg, .gif, .webp)");
   const size = Number(b.size);
   if (!Number.isFinite(size) || size <= 0) throw new HttpError(400, "bad_size", "File rỗng");
   if (size > t.max) throw new HttpError(400, "too_large", `File vượt giới hạn ${t.max / MB} MB cho loại .${ext}`);

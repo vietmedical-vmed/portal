@@ -247,15 +247,15 @@
       <label>Loại nội dung</label>
       <select id="cfgType" class="cfg-select">
         <option value="link">Link (URL)</option>
-        <option value="file">File — Excel / PowerPoint / ảnh</option>
+        <option value="file">File — Excel / PowerPoint / PDF / ảnh</option>
       </select>
       <div id="cfgUrlRow">
         <label>URL <span class="hint">(*)</span></label>
         <input id="cfgUrl" placeholder="https://..." />
       </div>
       <div id="cfgFileRow" class="hidden">
-        <label>File <span class="hint">(*) Excel ≤ 5 MB, PowerPoint / ảnh ≤ 10 MB</span></label>
-        <input id="cfgFile" type="file" accept=".xlsx,.xlsm,.xls,.pptx,.ppt,.png,.jpg,.jpeg,.gif,.webp" />
+        <label>File <span class="hint">(*) Excel ≤ 5 MB, PowerPoint / PDF / ảnh ≤ 10 MB</span></label>
+        <input id="cfgFile" type="file" accept=".xlsx,.xlsm,.xls,.pptx,.ppt,.pdf,.png,.jpg,.jpeg,.gif,.webp" />
         <div class="cfg-file-cur" id="cfgFileCur"></div>
       </div>
       <div class="field-row">
@@ -572,12 +572,12 @@
       }
     }
 
-    /* ================== FILE NHÚNG (Excel / PowerPoint / ảnh) ==================
+    /* ================== FILE NHÚNG (Excel / PowerPoint / PDF / ảnh) ==================
        File nằm ở bucket private portal-files; mọi thao tác qua Edge Function portal-files.
-       Xem: xin signed URL 2h → Excel/PowerPoint qua Office Online viewer, ảnh hiển thị trực tiếp.
+       Xem: xin signed URL 2h → Excel/PowerPoint qua Office Online viewer, PDF/ảnh hiển thị trực tiếp.
     */
     const FILES_API = AUTH.base + '/portal-files';
-    const FILE_KINDS = { excel: { icon: '📊', label: 'Excel' }, pptx: { icon: '📽️', label: 'PowerPoint' }, image: { icon: '🖼️', label: 'Ảnh' } };
+    const FILE_KINDS = { excel: { icon: '📊', label: 'Excel' }, pptx: { icon: '📽️', label: 'PowerPoint' }, pdf: { icon: '📕', label: 'PDF' }, image: { icon: '🖼️', label: 'Ảnh' } };
     const officeViewer = (url, mode) => 'https://view.officeapps.live.com/op/' + mode + '.aspx?src=' + encodeURIComponent(url);
     const fileSize = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
     const fileLabel = f => (FILE_KINDS[f.kind] || { icon: '📄' }).icon + ' ' + f.name + (f.size ? ' (' + fileSize(f.size) + ')' : '');
@@ -604,6 +604,9 @@
         f.src = 'about:blank';
         f.srcdoc = '<!DOCTYPE html><html><body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f4f6f9">' +
           '<img src="' + escAttr(url) + '" alt="' + escAttr(it.name) + '" style="max-width:100%;height:auto;display:block"></body></html>';
+        $('#openNew').href = url;
+      } else if (it.file.kind === 'pdf') {
+        f.src = url; // viewer PDF có sẵn của trình duyệt
         $('#openNew').href = url;
       } else {
         f.src = officeViewer(url, 'embed');
