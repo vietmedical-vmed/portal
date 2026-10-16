@@ -991,7 +991,7 @@
     const buName = code => { const b = usrOpts && usrOpts.bu.find(x => x.bu_code === code); return b ? b.ten_bu : code; };
     const mienName = code => { const m = usrOpts && usrOpts.mien.find(x => x.ma_mien === code); return m ? m.ten_mien : code; };
     const buText = bu => (!bu || String(bu).toLowerCase() === 'all') ? 'Tất cả' : splitList(bu).map(buName).join(', ');
-    const mienText = m => (!m || m === 'BOTH' || m === 'ALL') ? 'Tất cả' : mienName(m);
+    const mienText = m => (!m || m === 'BOTH' || m === 'ALL') ? 'Tất cả' : splitList(m).map(mienName).join(', ');
 
     async function openUsersPanel() {
       inConfigMode = false;
@@ -1150,7 +1150,8 @@
       const bu = isNew ? [] : (String(u.bu || '').toLowerCase() === 'all' ? [] : splitList(u.bu));
       usrState = {
         bu,
-        mien: isNew ? '' : (u.mien === 'ALL' ? 'BOTH' : (u.mien || '')),
+        mien: isNew ? '' : (['ALL', 'BOTH'].includes(u.mien) ? 'BOTH' : (splitList(u.mien)[0] || '')),
+        mienList: isNew ? [] : splitList(u.mien).map(x => x.toUpperCase()).filter(x => x !== 'BOTH' && x !== 'ALL'),
         scopeList: isNew ? [] : splitList(u.scope),
         scopeText: isNew ? '' : (u.scope || ''),
         ps: isNew ? '' : (u.scope || ''),
@@ -1229,6 +1230,8 @@
       if (p.bu === 'single' && st.bu.length > 1) st.bu = st.bu.slice(0, 1);
       if (p.mien === 'single' && st.mien === 'BOTH') st.mien = '';
       if (p.mien === 'any' && !st.mien) st.mien = 'BOTH';
+      if (p.mien === 'multi' && !st.mienList.length && st.mien && st.mien !== 'BOTH') st.mienList = [st.mien];
+      if (p.mien === 'single' && !st.mien && st.mienList.length) st.mien = st.mienList[0];
       const allowedNhom = new Set(nhomItems().map(x => x.value));
       st.scopeList = st.scopeList.filter(v => allowedNhom.has(v));
       st.nhom = st.nhom.filter(v => allowedNhom.has(v));
@@ -1251,10 +1254,18 @@
       else fb.appendChild(msWidget(buOpts, st.bu, 'Tất cả BU', sel => { st.bu = sel; renderNhom(); renderSummary(); }));
       row.appendChild(fb);
       // Miền
-      const fm = field('Miền', p.mien === 'single' ? '(*)' : '');
+      const fm = field('Miền', p.mien === 'single' ? '(*)' : p.mien === 'multi' ? '(*) chọn nhiều' : '');
       if (p.mien === 'both') fm.appendChild(roBox('Tất cả (BOTH)'));
       else if (p.mien === 'auto') { const r = psRowOf(st.ps); fm.appendChild(roBox(r ? (r.mien_code ? mienName(r.mien_code) : '⚠ không xác định (' + (r.area || 'trống') + ')') : '—')); }
-      else {
+      else if (p.mien === 'multi') {
+        fm.appendChild(msWidget(mienOpts, st.mienList, 'Chọn miền...', sel => {
+          // giữ thứ tự theo danh mục miền
+          st.mienList = mienOpts.map(m => m.value).filter(v => sel.includes(v));
+          const ro = document.getElementById('usrScopeRo');
+          if (ro) ro.textContent = st.mienList.length ? st.mienList.map(mienName).join(', ') : '—';
+          renderSummary();
+        }));
+      } else {
         const items = (p.mien === 'any' ? [{ value: 'BOTH', label: 'Tất cả (BOTH)' }] : []).concat(mienOpts);
         fm.appendChild(selectBox(items, st.mien, p.mien === 'single' ? '— Chọn miền —' : '', v => { st.mien = v; renderPerm(); }));
       }
@@ -1264,7 +1275,9 @@
       // Scope
       if (p.scope === 'ten_mien') {
         const f = field('Scope', 'tự điền theo miền');
-        f.appendChild(roBox(st.mien && st.mien !== 'BOTH' ? mienName(st.mien) : '—'));
+        const codes = p.mien === 'multi' ? st.mienList : (st.mien && st.mien !== 'BOTH' ? [st.mien] : []);
+        const ro = roBox(codes.length ? codes.map(mienName).join(', ') : '—'); ro.id = 'usrScopeRo';
+        f.appendChild(ro);
         box.appendChild(f);
       } else if (p.scope === 'free') {
         const f = field('Scope', 'nhập tự do');
@@ -1307,7 +1320,8 @@
       el.style.display = '';
       const p = profileOf(role), st = usrState, r = psRowOf(st.ps);
       const bu = p.bu === 'all' ? 'Tất cả' : p.bu === 'auto' ? (r ? buText(r.bu_code) : '—') : (st.bu.length ? st.bu.map(buName).join(', ') : 'Tất cả');
-      const mien = p.mien === 'both' ? 'Tất cả' : p.mien === 'auto' ? (r && r.mien_code ? mienName(r.mien_code) : '—') : mienText(st.mien);
+      const mien = p.mien === 'both' ? 'Tất cả' : p.mien === 'auto' ? (r && r.mien_code ? mienName(r.mien_code) : '—')
+        : p.mien === 'multi' ? (st.mienList.map(mienName).join(', ') || '—') : mienText(st.mien);
       const parts = ['<b>' + escHtml(roleLabel(role)) + '</b>', 'BU: ' + escHtml(bu), 'Miền: ' + escHtml(mien)];
       if (p.scope === 'ps') parts.push('PS: ' + escHtml(st.ps || '—'));
       if (p.scope === 'nhom_sp') parts.push('Nhóm SP: ' + escHtml(st.scopeList.join(', ') || (p.scopeRequired ? '—' : 'tất cả')));
@@ -1326,7 +1340,7 @@
         email: $('#usrEmail').value.trim(),
         role,
         bu: st.bu,
-        mien: st.mien,
+        mien: p.mien === 'multi' ? st.mienList : st.mien,
         scope,
         nhom_san_pham: st.nhom,
       };
@@ -1368,6 +1382,7 @@
       if (p.scope === 'ps' && !user.scope) { msg.textContent = 'Chọn PS'; return; }
       if (p.bu === 'single' && !user.bu.length) { msg.textContent = 'Chọn BU'; return; }
       if (p.mien === 'single' && !user.mien) { msg.textContent = 'Chọn miền'; return; }
+      if (p.mien === 'multi' && !user.mien.length) { msg.textContent = 'Chọn ít nhất 1 miền'; return; }
       if (p.scope === 'nhom_sp' && p.scopeRequired && !user.scope.length) { msg.textContent = 'Chọn ít nhất 1 nhóm SP phụ trách'; return; }
       if (isNew && pw.length < 6) { msg.textContent = 'Mật khẩu tối thiểu 6 ký tự'; return; }
       if (isNew && pw !== pw2) { msg.textContent = 'Nhập lại mật khẩu không khớp'; return; }

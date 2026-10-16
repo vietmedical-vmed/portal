@@ -192,16 +192,25 @@ function normalizeUser(input: Record<string, unknown>, d: Dicts): UserRow {
   }
   const bu = buList.length ? buList.join(", ") : "all";
 
-  // Miền
+  // Miền (mienCodes: danh sách ma_mien thực tế, rỗng = BOTH)
   let mien: string;
+  let mienCodes: string[] = [];
   if (p.mien === "both") mien = "BOTH";
   else if (p.mien === "auto") {
     if (!psRow?.mien_code) throw bad("invalid_mien", `Không xác định được miền của PS "${psRow?.ps}" (area: ${psRow?.area || "trống"})`);
     mien = psRow.mien_code;
+    mienCodes = [mien];
+  } else if (p.mien === "multi") {
+    const raw = uniq(splitList(input.mien).map((x) => x.toUpperCase()));
+    const unknown = raw.filter((x) => !mienByCode.has(x));
+    if (unknown.length) throw bad("invalid_mien", `Miền không hợp lệ: ${unknown.join(", ")}`);
+    if (!raw.length) throw bad("invalid_mien", "Role này cần chọn ít nhất 1 miền");
+    mienCodes = d.mien.map((m) => m.ma_mien).filter((c) => raw.includes(c)); // theo thứ tự dm_mien
+    mien = mienCodes.join(", ");
   } else {
     const raw = String(input.mien ?? "").trim().toUpperCase();
     if (p.mien === "any" && (raw === "" || raw === "BOTH" || raw === "ALL")) mien = "BOTH";
-    else if (mienByCode.has(raw)) mien = raw;
+    else if (mienByCode.has(raw)) { mien = raw; mienCodes = [raw]; }
     else throw bad("invalid_mien", p.mien === "single" ? "Role này cần chọn 1 miền" : "Miền không hợp lệ");
   }
 
@@ -221,7 +230,7 @@ function normalizeUser(input: Record<string, unknown>, d: Dicts): UserRow {
   switch (p.scope) {
     case "none": scope = null; break;
     case "nhom_sp": scope = pickNhom(input.scope, "scope").join(", ") || null; break;
-    case "ten_mien": scope = mienByCode.get(mien) ?? null; break;
+    case "ten_mien": scope = mienCodes.map((c) => mienByCode.get(c)).filter(Boolean).join(", ") || null; break;
     case "ps": scope = psRow!.ps; break;
     case "free": scope = String(input.scope ?? "").trim() || null; break;
   }
@@ -273,7 +282,10 @@ async function listUsers(db: SupabaseClient, b: Record<string, unknown>) {
   const term = String(b.q ?? "").replace(/[,()*\\%]/g, " ").trim();
   if (term) q = q.or(`username.ilike.*${term}*,ho_va_ten.ilike.*${term}*,email.ilike.*${term}*`);
   if (b.role) q = q.eq("role", String(b.role).toLowerCase());
-  if (b.mien) q = q.eq("mien", String(b.mien));
+  if (b.mien) {
+    const m = String(b.mien).replace(/[\\%_*]/g, "");
+    q = m === "BOTH" ? q.eq("mien", m) : q.ilike("mien", `%${m}%`); // mien có thể là "MB, MT"
+  }
   if (b.bu) q = q.ilike("bu", `%${String(b.bu).replace(/[\\%_*]/g, "")}%`);
   if (b.active === true || b.active === false) q = q.eq("active", b.active);
 

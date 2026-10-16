@@ -7,17 +7,18 @@
 //          "auto"   → lấy theo PS (dm_ps.bu_code)
 //   mien : "both"   → luôn 'BOTH' (khoá)
 //          "single" → đúng 1 ma_mien
+//          "multi"  → ≥1 ma_mien, lưu "MB, MT"
 //          "any"    → 'BOTH' hoặc 1 ma_mien
 //          "auto"   → lấy theo PS (dm_ps.area → ma_mien)
 //   scope: "none"     → để trống
 //          "nhom_sp"  → danh sách nhóm SP (dm_nhom_san_pham), lọc theo BU
-//          "ten_mien" → tự điền = dm_mien.ten_mien của miền đã chọn
+//          "ten_mien" → tự điền = danh sách dm_mien.ten_mien của các miền đã chọn
 //          "ps"       → mã PS (dm_ps.ps)
 //          "free"     → nhập tự do
 //   nhom : "hidden" | "optional" — cột nhom_san_pham (thu hẹp thêm, lọc giao)
 
 export type BuMode = "all" | "multi" | "single" | "auto";
-export type MienMode = "both" | "single" | "any" | "auto";
+export type MienMode = "both" | "single" | "multi" | "any" | "auto";
 export type ScopeMode = "none" | "nhom_sp" | "ten_mien" | "ps" | "free";
 
 export interface RoleProfile {
@@ -33,7 +34,7 @@ export const ROLE_PROFILES: Record<string, RoleProfile> = {
   admin:           { label: "Admin",           bu: "all",    mien: "both",   scope: "none",     scopeRequired: false, nhom: "hidden" },
   manager:         { label: "Manager",         bu: "all",    mien: "both",   scope: "none",     scopeRequired: false, nhom: "hidden" },
   product_manager: { label: "Product Manager", bu: "multi",  mien: "both",   scope: "nhom_sp",  scopeRequired: true,  nhom: "hidden" },
-  area_manager:    { label: "Area Manager",    bu: "single", mien: "single", scope: "ten_mien", scopeRequired: true,  nhom: "optional" },
+  area_manager:    { label: "Area Manager",    bu: "single", mien: "multi",  scope: "ten_mien", scopeRequired: true,  nhom: "optional" },
   ps:              { label: "PS",              bu: "auto",   mien: "auto",   scope: "ps",       scopeRequired: true,  nhom: "optional" },
   purchasing:      { label: "Purchasing",      bu: "multi",  mien: "both",   scope: "nhom_sp",  scopeRequired: false, nhom: "optional" },
 };
