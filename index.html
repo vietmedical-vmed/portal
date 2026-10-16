@@ -602,8 +602,7 @@
       f.style.display = '';
       if (it.file.kind === 'image') {
         f.src = 'about:blank';
-        f.srcdoc = '<!DOCTYPE html><html><body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f4f6f9">' +
-          '<img src="' + escAttr(url) + '" alt="' + escAttr(it.name) + '" style="max-width:100%;height:auto;display:block"></body></html>';
+        f.srcdoc = imageDoc(url, it.name);
         $('#openNew').href = url;
       } else if (it.file.kind === 'pdf') {
         f.src = url; // viewer PDF có sẵn của trình duyệt
@@ -613,6 +612,22 @@
         $('#openNew').href = officeViewer(url, 'view');
       }
       $('#openNew').style.display = 'inline-block';
+    }
+
+    // Trang xem ảnh: 1 pixel ảnh = 1 pixel màn hình (chia devicePixelRatio) để Windows scale 125–150%
+    // không phóng ảnh lên làm mờ chữ. Ảnh rộng hơn khung thì thu vừa khung; click để xem kích thước gốc.
+    function imageDoc(url, name) {
+      return '<!DOCTYPE html><html><head><style>' +
+        'html,body{margin:0;background:#f4f6f9}body{padding:16px;box-sizing:border-box;min-height:100vh}' +
+        'img{display:block;margin:0 auto;height:auto;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12)}' +
+        '</style></head><body><img id="i" src="' + escAttr(url) + '" alt="' + escAttr(name) + '">' +
+        '<script>(function(){var i=document.getElementById("i"),fit=true;' +
+        'function apply(){if(!i.naturalWidth)return;var w=i.naturalWidth/(window.devicePixelRatio||1),' +
+        'max=document.documentElement.clientWidth-32,big=w>max;' +
+        'i.style.width=(fit&&big?max:w)+"px";i.style.cursor=big?(fit?"zoom-in":"zoom-out"):"default";' +
+        'i.title=big?(fit?"Click để xem kích thước gốc":"Click để thu vừa khung"):"";}' +
+        'i.onload=apply;window.onresize=apply;i.onclick=function(){fit=!fit;apply();};apply();})();<\/script>' +
+        '</body></html>';
     }
 
     // Admin: xin signed upload URL rồi PUT file thẳng lên Storage.
