@@ -105,6 +105,9 @@
     .cfg-modal .modal-card input, .cfg-modal .modal-card select { margin-bottom: 2px; }
     .cfg-modal .field-row { display: flex; gap: 12px; }
     .cfg-modal .field-row > div { flex: 1; }
+    .cfg-select { width: 100%; padding: 9px 11px; border: 1px solid var(--border); border-radius: 7px; font-size: 14px; background: #fff; }
+    .cfg-modal .modal-card input[type="file"] { padding: 7px; font-size: 13px; background: #f9fafb; }
+    .cfg-file-cur { font-size: 12px; color: var(--muted); margin-top: 4px; min-height: 16px; }
     .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: 11px; background: #e0e7ff; color: #3730a3; margin-right: 4px; }
 
     /* ===== Multi-select dropdown ===== */
@@ -241,15 +244,27 @@
       <p class="msub">Khai báo thông tin cho dashboard / app</p>
       <label>Tên hiển thị <span class="hint">(*)</span></label>
       <input id="cfgName" required placeholder="VD: Báo cáo Doanh thu" />
-      <label>URL <span class="hint">(*)</span></label>
-      <input id="cfgUrl" required placeholder="https://..." />
+      <label>Loại nội dung</label>
+      <select id="cfgType" class="cfg-select">
+        <option value="link">Link (URL)</option>
+        <option value="file">File — Excel / PowerPoint / ảnh</option>
+      </select>
+      <div id="cfgUrlRow">
+        <label>URL <span class="hint">(*)</span></label>
+        <input id="cfgUrl" placeholder="https://..." />
+      </div>
+      <div id="cfgFileRow" class="hidden">
+        <label>File <span class="hint">(*) Excel ≤ 5 MB, PowerPoint / ảnh ≤ 10 MB</span></label>
+        <input id="cfgFile" type="file" accept=".xlsx,.xlsm,.xls,.pptx,.ppt,.png,.jpg,.jpeg,.gif,.webp" />
+        <div class="cfg-file-cur" id="cfgFileCur"></div>
+      </div>
       <div class="field-row">
         <div>
           <label>Nhóm <span class="hint">(*)</span></label>
           <input id="cfgGroup" required placeholder="VD: Dashboard" list="cfgGroupList" />
           <datalist id="cfgGroupList"></datalist>
         </div>
-        <div>
+        <div id="cfgEmbedCol">
           <label>Nhúng iframe?</label>
           <select id="cfgEmbed" style="width:100%;padding:9px 11px;border:1px solid var(--border);border-radius:7px;font-size:14px;background:#fff;">
             <option value="yes">Có (mặc định)</option>
@@ -469,6 +484,7 @@
       f.removeAttribute('src');
       f.src = 'about:blank';
       f.removeAttribute('src');
+      f.removeAttribute('srcdoc');
       f.style.display = '';
       closeAdminPanels();
       $('#placeholder').style.display = 'flex';
@@ -533,12 +549,16 @@
       buildNav(user);
     }
 
+    let selectSeq = 0;
     function selectItem(items, i) {
       inConfigMode = false;
       closeAdminPanels();
       const it = items[i]; if (!it) return;
+      const seq = ++selectSeq;
       document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.i == i));
       $('#title').textContent = it.name;
+      $('#frame').removeAttribute('srcdoc');
+      if (it.file) { showFileItem(it, seq); return; }
       $('#openNew').href = it.url; $('#openNew').style.display = 'inline-block';
       if (it.embed === false) {
         $('#frame').style.display = 'none';
@@ -550,6 +570,66 @@
         $('#frame').style.display = '';
         $('#frame').src = it.url;
       }
+    }
+
+    /* ================== FILE NHÚNG (Excel / PowerPoint / ảnh) ==================
+       File nằm ở bucket private portal-files; mọi thao tác qua Edge Function portal-files.
+       Xem: xin signed URL 2h → Excel/PowerPoint qua Office Online viewer, ảnh hiển thị trực tiếp.
+    */
+    const FILES_API = AUTH.base + '/portal-files';
+    const FILE_KINDS = { excel: { icon: '📊', label: 'Excel' }, pptx: { icon: '📽️', label: 'PowerPoint' }, image: { icon: '🖼️', label: 'Ảnh' } };
+    const officeViewer = (url, mode) => 'https://view.officeapps.live.com/op/' + mode + '.aspx?src=' + encodeURIComponent(url);
+    const fileSize = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
+    const fileLabel = f => (FILE_KINDS[f.kind] || { icon: '📄' }).icon + ' ' + f.name + (f.size ? ' (' + fileSize(f.size) + ')' : '');
+
+    async function showFileItem(it, seq) {
+      const ph = $('#placeholder');
+      $('#frame').style.display = 'none';
+      $('#openNew').style.display = 'none';
+      ph.style.display = 'flex';
+      ph.innerHTML = '<p>Đang tải ' + escHtml(it.file.name || 'file') + '…</p>';
+      let url;
+      try {
+        url = (await fnApi(FILES_API, 'sign', { path: it.file.path })).url;
+      } catch (e) {
+        if (seq !== selectSeq) return;
+        ph.innerHTML = '<h2>' + escHtml(it.name) + '</h2><p>Không mở được file: ' + escHtml(e.message) + '</p>';
+        return;
+      }
+      if (seq !== selectSeq || inConfigMode) return; // đã chuyển sang mục khác
+      ph.style.display = 'none';
+      const f = $('#frame');
+      f.style.display = '';
+      if (it.file.kind === 'image') {
+        f.src = 'about:blank';
+        f.srcdoc = '<!DOCTYPE html><html><body style="margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f4f6f9">' +
+          '<img src="' + escAttr(url) + '" alt="' + escAttr(it.name) + '" style="max-width:100%;height:auto;display:block"></body></html>';
+        $('#openNew').href = url;
+      } else {
+        f.src = officeViewer(url, 'embed');
+        $('#openNew').href = officeViewer(url, 'view');
+      }
+      $('#openNew').style.display = 'inline-block';
+    }
+
+    // Admin: xin signed upload URL rồi PUT file thẳng lên Storage.
+    async function uploadPortalFile(file) {
+      const up = await fnApi(FILES_API, 'upload_url', { name: file.name, size: file.size });
+      const res = await fetch(up.signed_url, {
+        method: 'PUT',
+        headers: { 'apikey': AUTH.anonKey, 'Authorization': 'Bearer ' + AUTH.anonKey, 'Content-Type': up.content_type, 'x-upsert': 'false' },
+        body: file,
+      });
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error('Upload thất bại: ' + (d.message || d.error || res.status));
+      }
+      return { path: up.path, name: file.name, kind: up.kind, size: file.size };
+    }
+
+    // Xoá file mồ côi; lỗi chỉ log (file thừa trong bucket không ảnh hưởng portal).
+    function deletePortalFile(path) {
+      if (path) fnApi(FILES_API, 'delete', { path }).catch(e => console.warn('Xoá file thất bại', path, e));
     }
 
     /* ================== CẤU HÌNH DASHBOARD ================== */
@@ -593,17 +673,20 @@
         html += '<div class="cfg-empty"><p>Chưa có mục nào. Nhấn "+ Thêm mục mới" để bắt đầu.</p></div>';
       } else {
         html += '<table class="cfg-table"><thead><tr>';
-        html += '<th style="width:36px"></th><th style="width:36px">#</th><th>Tên</th><th>Nhóm</th><th>URL</th><th>Roles</th><th>Nhúng</th><th style="width:90px">Thao tác</th>';
+        html += '<th style="width:36px"></th><th style="width:36px">#</th><th>Tên</th><th>Nhóm</th><th>URL / File</th><th>Roles</th><th>Nhúng</th><th style="width:90px">Thao tác</th>';
         html += '</tr></thead><tbody id="cfgBody">';
         items.forEach((it, i) => {
           const rolesStr = (it.roles || []).join(', ') || '<span style="color:#94a3b8">Tất cả</span>';
           const embedStr = it.embed === false ? 'Không' : 'Có';
+          const urlCell = it.file
+            ? '<td class="url-cell" title="' + escAttr(it.file.name) + '">' + escHtml(fileLabel(it.file)) + '</td>'
+            : '<td class="url-cell" title="' + escAttr(it.url) + '">' + escHtml(truncUrl(it.url)) + '</td>';
           html += '<tr draggable="true" data-ci="' + i + '">';
           html += '<td class="drag-handle" title="Kéo để sắp xếp">⠿</td>';
           html += '<td>' + (i + 1) + '</td>';
           html += '<td><strong>' + escHtml(it.name) + '</strong></td>';
           html += '<td><span class="badge">' + escHtml(it.group || 'Khác') + '</span></td>';
-          html += '<td class="url-cell" title="' + escHtml(it.url) + '">' + escHtml(truncUrl(it.url)) + '</td>';
+          html += urlCell;
           html += '<td class="roles-cell">' + rolesStr + '</td>';
           html += '<td>' + embedStr + '</td>';
           html += '<td class="actions-cell">';
@@ -700,10 +783,27 @@
     });
 
     // --- Thêm / Sửa item ---
+    let cfgEditFile = null; // file đang gắn với mục đang sửa (null = chưa có)
+
+    function setCfgType(type) {
+      $('#cfgType').value = type;
+      $('#cfgUrlRow').classList.toggle('hidden', type === 'file');
+      $('#cfgFileRow').classList.toggle('hidden', type !== 'file');
+      $('#cfgEmbedCol').style.visibility = type === 'file' ? 'hidden' : '';
+    }
+    $('#cfgType').addEventListener('change', e => setCfgType(e.target.value));
+
+    function resetCfgFile(file) {
+      cfgEditFile = file || null;
+      $('#cfgFile').value = '';
+      $('#cfgFileCur').textContent = file ? 'Hiện tại: ' + fileLabel(file) + ' — chọn file khác để thay' : '';
+    }
+
     function openCfgAdd() {
       $('#cfgModalTitle').textContent = 'Thêm mục mới';
       $('#cfgName').value = ''; $('#cfgUrl').value = ''; $('#cfgGroup').value = '';
       $('#cfgEmbed').value = 'yes'; setSelectedRoles([]); $('#cfgIdx').value = '-1'; $('#cfgMsg').textContent = '';
+      setCfgType('link'); resetCfgFile(null);
       populateGroupDatalist();
       $('#cfgModal').classList.remove('hidden');
       $('#cfgName').focus();
@@ -714,9 +814,10 @@
       const it = items[i]; if (!it) return;
       $('#cfgModalTitle').textContent = 'Sửa: ' + it.name;
       $('#cfgName').value = it.name;
-      $('#cfgUrl').value = it.url;
+      $('#cfgUrl').value = it.url || '';
       $('#cfgGroup').value = it.group || '';
       $('#cfgEmbed').value = it.embed === false ? 'no' : 'yes';
+      setCfgType(it.file ? 'file' : 'link'); resetCfgFile(it.file);
       setSelectedRoles(it.roles || []);
       $('#cfgIdx').value = String(i);
       $('#cfgMsg').textContent = '';
@@ -744,20 +845,38 @@
       const embed = $('#cfgEmbed').value !== 'no';
       const roles = getSelectedRoles();
       const idx = parseInt($('#cfgIdx').value, 10);
+      const isFile = $('#cfgType').value === 'file';
+      const newFile = isFile ? $('#cfgFile').files[0] : null;
 
-      if (!name || !url || !group) { $('#cfgMsg').textContent = 'Vui lòng điền đủ các trường bắt buộc'; return; }
+      if (!name || !group || (!isFile && !url)) { $('#cfgMsg').textContent = 'Vui lòng điền đủ các trường bắt buộc'; return; }
+      if (isFile && !newFile && !cfgEditFile) { $('#cfgMsg').textContent = 'Chọn file cần nhúng'; return; }
 
-      const items = getItems();
-      const obj = { name, url, group };
-      if (!embed) obj.embed = false;
+      const obj = { name, group };
+      if (isFile) {
+        obj.file = cfgEditFile;
+        if (newFile) {
+          const btn = $('#cfgForm button[type="submit"]');
+          btn.disabled = true; $('#cfgMsg').style.color = 'var(--muted)'; $('#cfgMsg').textContent = 'Đang tải file lên…';
+          try { obj.file = await uploadPortalFile(newFile); }
+          catch (err) { $('#cfgMsg').style.color = '#dc2626'; $('#cfgMsg').textContent = err.message; return; }
+          finally { btn.disabled = false; }
+          $('#cfgMsg').style.color = '#dc2626'; $('#cfgMsg').textContent = '';
+        }
+      } else {
+        obj.url = url;
+        if (!embed) obj.embed = false;
+      }
       if (roles.length) obj.roles = roles;
 
+      const items = getItems();
       if (idx >= 0 && idx < items.length) {
         items[idx] = obj;
       } else {
         items.push(obj);
       }
       await saveItems(items);
+      // File cũ bị thay / bỏ (chuyển sang Link) → xoá khỏi bucket
+      if (cfgEditFile && (!obj.file || obj.file.path !== cfgEditFile.path)) deletePortalFile(cfgEditFile.path);
       closeCfgModal();
       renderConfigTable();
       buildNav(currentUser);
@@ -770,6 +889,7 @@
       if (!it || !confirm('Xoá "' + it.name + '"?')) return;
       items.splice(i, 1);
       await saveItems(items);
+      if (it.file) deletePortalFile(it.file.path);
       renderConfigTable();
       buildNav(currentUser);
     }
@@ -797,7 +917,7 @@
         try {
           const items = JSON.parse(reader.result);
           if (!Array.isArray(items)) throw new Error('not array');
-          items.forEach(it => { if (!it.name || !it.url) throw new Error('missing fields'); });
+          items.forEach(it => { if (!it.name || !(it.url || (it.file && it.file.path))) throw new Error('missing fields'); });
           await saveItems(items);
           renderConfigTable();
           buildNav(currentUser);
@@ -820,8 +940,11 @@
     let usrTotal = 0;
     const USR_PAGE_SIZE = 10;
 
-    async function adminApi(action, payload = {}) {
-      const res = await fetch(USERS_API, {
+    const adminApi = (action, payload) => fnApi(USERS_API, action, payload);
+
+    // Gọi Edge Function của portal (verify token ở server qua x-portal-token).
+    async function fnApi(endpoint, action, payload = {}) {
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

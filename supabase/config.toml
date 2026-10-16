@@ -2,3 +2,6 @@ project_id = "site-view"
 
 [functions.admin-users]
 verify_jwt = false
+
+[functions.portal-files]
+verify_jwt = false

@@ -8,6 +8,7 @@ Portal nội bộ tập trung các ứng dụng web và dashboard Power BI cho K
 - **Menu điều hướng** — sidebar phân nhóm (Web Apps, Dashboard, …), hỗ trợ phân quyền theo role.
 - **Nhúng iframe** — mở app/dashboard ngay trong trang; nếu không nhúng được thì mở tab mới.
 - **Cấu hình Portal (Admin)** — thêm / sửa / xoá / kéo-thả sắp xếp các mục menu, xuất/nhập JSON.
+- **Nhúng file** — mục menu có thể là file Excel (≤ 5 MB), PowerPoint (≤ 10 MB) hoặc ảnh (≤ 10 MB) thay cho link. File lưu ở bucket private `portal-files`, xem qua signed URL 2h (Excel/PowerPoint hiển thị bằng Office Online viewer).
 - **Đổi mật khẩu** — người dùng tự đổi mật khẩu ngay trên portal.
 - **Quản lý tài khoản (Admin)** — tạo, sửa, reset mật khẩu, khoá/mở tài khoản trong `shared.users`; field phân quyền hiển thị theo role.
 - **Responsive** — giao diện sidebar thu gọn, hoạt động trên nhiều kích thước màn hình.
@@ -29,7 +30,8 @@ Portal nội bộ tập trung các ứng dụng web và dashboard Power BI cho K
 │   ├── migrations/             # SQL chạy tay trên SQL Editor
 │   └── functions/
 │       ├── _shared/            # auth.ts (token HMAC, sha256), cors.ts
-│       └── admin-users/        # API quản lý tài khoản; roles.ts = cấu hình field theo role
+│       ├── admin-users/        # API quản lý tài khoản; roles.ts = cấu hình field theo role
+│       └── portal-files/       # Upload / ký URL / xoá file nhúng (bucket portal-files)
 └── .nojekyll       # Bỏ qua xử lý Jekyll trên GitHub Pages
 ```
 
@@ -37,6 +39,7 @@ Deploy Edge Function (chạy migration trong `supabase/migrations/` trước):
 
 ```
 supabase functions deploy admin-users --no-verify-jwt --project-ref nrfxymnfmjhbsgpipvkb
+supabase functions deploy portal-files --no-verify-jwt --project-ref nrfxymnfmjhbsgpipvkb
 ```
 
 ## Triển khai
