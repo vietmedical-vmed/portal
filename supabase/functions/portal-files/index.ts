@@ -7,10 +7,10 @@
 //
 //   upload_url → { name, size }  (admin) → { path, signed_url, content_type, kind }
 //                trình duyệt PUT file lên signed_url (sống 2h, không ghi đè).
-//   sign       → { path }        (user đã login) → { url } signed URL 2h.
-//                Chỉ ký file đang gắn với mục menu trong portal_config và role được xem;
-//                admin ký được mọi file (xem trước khi lưu).
-//   delete     → { path }        (admin) — gọi khi xoá / thay file của mục menu.
+//   sign       → { path } | { paths } (user đã login) → { url } | { urls } signed URL 2h.
+//                Chỉ ký file đang gắn với mục menu trong portal_config (item.file hoặc item.files)
+//                và role được xem; admin ký được mọi file (xem trước khi lưu).
+//   delete     → { path } | { paths } (admin) — gọi khi xoá / thay file của mục menu.
 //
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, TOKEN_SECRET (dùng chung với sale_target-login).
 // Deploy : supabase functions deploy portal-files --no-verify-jwt --project-ref nrfxymnfmjhbsgpipvkb
@@ -21,6 +21,7 @@ import { verifyToken } from "../_shared/auth.ts";
 
 const BUCKET = "portal-files";
 const SIGN_TTL = 2 * 60 * 60;
+const MAX_PATHS = 30;
 const MB = 1024 * 1024;
 const PATH_RE = /^files\/[0-9a-f-]{36}\.[a-z]{3,4}$/;
 // Giống index.html: alias role cũ → role chuẩn.
@@ -67,7 +68,7 @@ Deno.serve(async (req) => {
     const action = String(body.action || "");
     switch (action) {
       case "upload_url": requireAdmin(me); return json({ ok: true, ...(await uploadUrl(db, body)) });
-      case "sign":       return json({ ok: true, url: await sign(db, me, body) });
+      case "sign":       return json({ ok: true, ...(await sign(db, me, body)) });
       case "delete":     requireAdmin(me); await remove(db, body); return json({ ok: true });
       default:           return json({ ok: false, error: "unknown_action" }, 400);
     }
@@ -107,6 +108,19 @@ function checkPath(p: unknown): string {
   return path;
 }
 
+// { path } → [path]; { paths } → danh sách (mục nhiều ảnh), tối đa MAX_PATHS.
+function readPaths(b: Record<string, unknown>): string[] {
+  const raw = Array.isArray(b.paths) ? b.paths : [b.path];
+  if (!raw.length || raw.length > MAX_PATHS) throw new HttpError(400, "bad_path", `Cần 1–${MAX_PATHS} file`);
+  return [...new Set(raw.map(checkPath))];
+}
+
+// Mục menu gắn 1 file (item.file) hoặc nhiều ảnh (item.files).
+function itemPaths(it: Record<string, unknown>): string[] {
+  const list = Array.isArray(it.files) ? it.files : it.file ? [it.file] : [];
+  return list.map((f) => String((f as Record<string, unknown>)?.path ?? ""));
+}
+
 // ---------- Actions ----------
 async function uploadUrl(db: SupabaseClient, b: Record<string, unknown>) {
   const name = String(b.name ?? "").trim();
@@ -124,26 +138,24 @@ async function uploadUrl(db: SupabaseClient, b: Record<string, unknown>) {
 }
 
 async function sign(db: SupabaseClient, me: Me, b: Record<string, unknown>) {
-  const path = checkPath(b.path);
+  const paths = readPaths(b);
   if (me.role !== "admin") {
     const { data, error } = await db.from("portal_config").select("items").eq("id", 1).maybeSingle();
     if (error) throw error;
     const items = Array.isArray(data?.items) ? data.items as Record<string, unknown>[] : [];
-    const allowed = items.some((it) => {
-      const f = it.file as Record<string, unknown> | undefined;
-      if (!f || f.path !== path) return false;
+    const visible = new Set(items.filter((it) => {
       const roles = Array.isArray(it.roles) ? it.roles.map(normRole) : [];
       return roles.length === 0 || roles.includes(me.role);
-    });
-    if (!allowed) throw new HttpError(403, "forbidden", "Bạn không có quyền xem file này");
+    }).flatMap(itemPaths));
+    if (!paths.every((p) => visible.has(p))) throw new HttpError(403, "forbidden", "Bạn không có quyền xem file này");
   }
-  const { data, error } = await db.storage.from(BUCKET).createSignedUrl(path, SIGN_TTL);
-  if (error) throw new HttpError(404, "not_found", "Không tìm thấy file");
-  return data.signedUrl;
+  const { data, error } = await db.storage.from(BUCKET).createSignedUrls(paths, SIGN_TTL);
+  if (error || !data || data.some((d) => d.error || !d.signedUrl)) throw new HttpError(404, "not_found", "Không tìm thấy file");
+  const urls = paths.map((p) => data.find((d) => d.path === p)!.signedUrl);
+  return Array.isArray(b.paths) ? { urls } : { url: urls[0] };
 }
 
 async function remove(db: SupabaseClient, b: Record<string, unknown>) {
-  const path = checkPath(b.path);
-  const { error } = await db.storage.from(BUCKET).remove([path]);
+  const { error } = await db.storage.from(BUCKET).remove(readPaths(b));
   if (error) throw error;
 }

@@ -255,7 +255,8 @@
       </div>
       <div id="cfgFileRow" class="hidden">
         <label>File <span class="hint">(*) Excel ≤ 5 MB, PowerPoint / PDF / ảnh ≤ 10 MB</span></label>
-        <input id="cfgFile" type="file" accept=".xlsx,.xlsm,.xls,.pptx,.ppt,.pdf,.png,.jpg,.jpeg,.gif,.webp" />
+        <input id="cfgFile" type="file" multiple accept=".xlsx,.xlsm,.xls,.pptx,.ppt,.pdf,.png,.jpg,.jpeg,.gif,.webp" />
+        <div class="cfg-file-cur">Nhiều ảnh: chọn cùng lúc (tối đa 30), hiển thị theo thứ tự tên file.</div>
         <div class="cfg-file-cur" id="cfgFileCur"></div>
       </div>
       <div class="field-row">
@@ -558,7 +559,7 @@
       document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.i == i));
       $('#title').textContent = it.name;
       $('#frame').removeAttribute('srcdoc');
-      if (it.file) { showFileItem(it, seq); return; }
+      if (itemFiles(it).length) { showFileItem(it, seq); return; }
       $('#openNew').href = it.url; $('#openNew').style.display = 'inline-block';
       if (it.embed === false) {
         $('#frame').style.display = 'none';
@@ -581,16 +582,22 @@
     const officeViewer = (url, mode) => 'https://view.officeapps.live.com/op/' + mode + '.aspx?src=' + encodeURIComponent(url);
     const fileSize = n => n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB';
     const fileLabel = f => (FILE_KINDS[f.kind] || { icon: '📄' }).icon + ' ' + f.name + (f.size ? ' (' + fileSize(f.size) + ')' : '');
+    // Mục menu gắn 1 file (item.file) hoặc nhiều ảnh (item.files).
+    const itemFiles = it => Array.isArray(it.files) ? it.files : it.file ? [it.file] : [];
+    const filesLabel = fs => fs.length === 1 ? fileLabel(fs[0])
+      : '🖼️ ' + fs.length + ' ảnh (' + fileSize(fs.reduce((n, f) => n + (f.size || 0), 0)) + ')';
+    const IMAGE_RE = /\.(png|jpe?g|gif|webp)$/i;
+    const MAX_IMAGES = 30;
 
     async function showFileItem(it, seq) {
-      const ph = $('#placeholder');
+      const ph = $('#placeholder'), files = itemFiles(it);
       $('#frame').style.display = 'none';
       $('#openNew').style.display = 'none';
       ph.style.display = 'flex';
-      ph.innerHTML = '<p>Đang tải ' + escHtml(it.file.name || 'file') + '…</p>';
-      let url;
+      ph.innerHTML = '<p>Đang tải ' + escHtml(files.length > 1 ? files.length + ' ảnh' : (files[0].name || 'file')) + '…</p>';
+      let urls;
       try {
-        url = (await fnApi(FILES_API, 'sign', { path: it.file.path })).url;
+        urls = (await fnApi(FILES_API, 'sign', { paths: files.map(f => f.path) })).urls;
       } catch (e) {
         if (seq !== selectSeq) return;
         ph.innerHTML = '<h2>' + escHtml(it.name) + '</h2><p>Không mở được file: ' + escHtml(e.message) + '</p>';
@@ -598,13 +605,19 @@
       }
       if (seq !== selectSeq || inConfigMode) return; // đã chuyển sang mục khác
       ph.style.display = 'none';
-      const f = $('#frame');
+      const f = $('#frame'), url = urls[0], kind = files[0].kind;
       f.style.display = '';
-      if (it.file.kind === 'image') {
+      if (files.length > 1) {
+        f.src = 'about:blank';
+        f.srcdoc = slideshowDoc(urls, it.name);
+        $('#openNew').style.display = 'none';
+        return;
+      }
+      if (kind === 'image') {
         f.src = 'about:blank';
         f.srcdoc = imageDoc(url, it.name);
         $('#openNew').href = url;
-      } else if (it.file.kind === 'pdf') {
+      } else if (kind === 'pdf') {
         f.src = url; // viewer PDF có sẵn của trình duyệt
         $('#openNew').href = url;
       } else {
@@ -612,6 +625,42 @@
         $('#openNew').href = officeViewer(url, 'view');
       }
       $('#openNew').style.display = 'inline-block';
+    }
+
+    // Trang xem nhiều ảnh: mỗi lần 1 ảnh, thu vừa khung (không cuộn), thanh dưới chuyển trang.
+    // Ảnh không phóng to quá 1 pixel ảnh = 1 pixel màn hình (giống imageDoc) để chữ không mờ.
+    function slideshowDoc(urls, name) {
+      const dots = urls.length <= 15
+        ? '<div class="dots">' + urls.map((_, n) => '<button class="dot" data-n="' + n + '" title="Ảnh ' + (n + 1) + '"></button>').join('') + '</div>' : '';
+      return '<!DOCTYPE html><html><head><style>' +
+        'html,body{margin:0;height:100%;overflow:hidden;background:#f4f6f9;font-family:"Segoe UI",system-ui,sans-serif}' +
+        'body{display:flex;flex-direction:column}#stage{flex:1;min-height:0;position:relative}' +
+        '#stage img{position:absolute;inset:0;margin:auto;display:none;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.12)}' +
+        '#stage img.on{display:block}' +
+        '#bar{height:48px;flex-shrink:0;display:flex;align-items:center;justify-content:center;gap:14px;background:#fff;border-top:1px solid #dadde1}' +
+        '#bar .nav{border:1px solid #dadde1;background:#fff;border-radius:6px;width:40px;height:32px;cursor:pointer;font-size:18px;line-height:1;color:#111827}' +
+        '#bar .nav:hover:not(:disabled){background:#f1f5f9}#bar .nav:disabled{opacity:.35;cursor:default}' +
+        '.dots{display:flex;gap:6px}.dot{width:9px;height:9px;border-radius:50%;border:0;padding:0;background:#cbd5e1;cursor:pointer}' +
+        '.dot.on{background:#1877f2}#num{font-size:13px;color:#6b7280;min-width:44px;text-align:center}' +
+        '</style></head><body><div id="stage">' +
+        urls.map((u, n) => '<img src="' + escAttr(u) + '" alt="' + escAttr(name + ' — ảnh ' + (n + 1)) + '">').join('') +
+        '</div><div id="bar"><button class="nav" id="prev" title="Ảnh trước (←)">‹</button>' + dots +
+        '<span id="num"></span><button class="nav" id="next" title="Ảnh sau (→)">›</button></div>' +
+        '<script>(function(){var st=document.getElementById("stage"),imgs=st.querySelectorAll("img"),' +
+        'dots=document.querySelectorAll(".dot"),prev=document.getElementById("prev"),next=document.getElementById("next"),' +
+        'num=document.getElementById("num"),cur=0,last=imgs.length-1;' +
+        'function fit(i){if(!i.naturalWidth)return;var r=window.devicePixelRatio||1,w=i.naturalWidth/r,h=i.naturalHeight/r,' +
+        'k=Math.min(1,(st.clientWidth-32)/w,(st.clientHeight-32)/h);i.style.width=w*k+"px";i.style.height=h*k+"px";}' +
+        'function show(n){cur=Math.max(0,Math.min(last,n));' +
+        'for(var j=0;j<imgs.length;j++)imgs[j].classList.toggle("on",j===cur);' +
+        'for(var d=0;d<dots.length;d++)dots[d].classList.toggle("on",d===cur);' +
+        'num.textContent=(cur+1)+" / "+imgs.length;prev.disabled=cur===0;next.disabled=cur===last;fit(imgs[cur]);}' +
+        'for(var j=0;j<imgs.length;j++)imgs[j].onload=function(){fit(this);};' +
+        'for(var d=0;d<dots.length;d++)dots[d].onclick=function(){show(+this.dataset.n);};' +
+        'prev.onclick=function(){show(cur-1);};next.onclick=function(){show(cur+1);};' +
+        'window.onresize=function(){fit(imgs[cur]);};' +
+        'document.onkeydown=function(e){if(e.key==="ArrowLeft")show(cur-1);else if(e.key==="ArrowRight")show(cur+1);};' +
+        'show(0);})();<\/script></body></html>';
     }
 
     // Trang xem ảnh: 1 pixel ảnh = 1 pixel màn hình (chia devicePixelRatio) để Windows scale 125–150%
@@ -646,8 +695,8 @@
     }
 
     // Xoá file mồ côi; lỗi chỉ log (file thừa trong bucket không ảnh hưởng portal).
-    function deletePortalFile(path) {
-      if (path) fnApi(FILES_API, 'delete', { path }).catch(e => console.warn('Xoá file thất bại', path, e));
+    function deletePortalFiles(paths) {
+      if (paths.length) fnApi(FILES_API, 'delete', { paths }).catch(e => console.warn('Xoá file thất bại', paths, e));
     }
 
     /* ================== CẤU HÌNH DASHBOARD ================== */
@@ -696,8 +745,9 @@
         items.forEach((it, i) => {
           const rolesStr = (it.roles || []).join(', ') || '<span style="color:#94a3b8">Tất cả</span>';
           const embedStr = it.embed === false ? 'Không' : 'Có';
-          const urlCell = it.file
-            ? '<td class="url-cell" title="' + escAttr(it.file.name) + '">' + escHtml(fileLabel(it.file)) + '</td>'
+          const fs = itemFiles(it);
+          const urlCell = fs.length
+            ? '<td class="url-cell" title="' + escAttr(fs.map(f => f.name).join(', ')) + '">' + escHtml(filesLabel(fs)) + '</td>'
             : '<td class="url-cell" title="' + escAttr(it.url) + '">' + escHtml(truncUrl(it.url)) + '</td>';
           html += '<tr draggable="true" data-ci="' + i + '">';
           html += '<td class="drag-handle" title="Kéo để sắp xếp">⠿</td>';
@@ -801,7 +851,7 @@
     });
 
     // --- Thêm / Sửa item ---
-    let cfgEditFile = null; // file đang gắn với mục đang sửa (null = chưa có)
+    let cfgEditFiles = []; // file đang gắn với mục đang sửa (rỗng = chưa có)
 
     function setCfgType(type) {
       $('#cfgType').value = type;
@@ -811,17 +861,26 @@
     }
     $('#cfgType').addEventListener('change', e => setCfgType(e.target.value));
 
-    function resetCfgFile(file) {
-      cfgEditFile = file || null;
+    function resetCfgFile(files) {
+      cfgEditFiles = files || [];
       $('#cfgFile').value = '';
-      $('#cfgFileCur').textContent = file ? 'Hiện tại: ' + fileLabel(file) + ' — chọn file khác để thay' : '';
+      $('#cfgFileCur').textContent = cfgEditFiles.length ? 'Hiện tại: ' + filesLabel(cfgEditFiles) + ' — chọn file khác để thay' : '';
+    }
+
+    // Kiểm tra file chọn trong modal; nhiều file chỉ áp dụng cho ảnh, sắp theo tên (1, 2, …, 10).
+    function pickCfgFiles() {
+      const list = [...$('#cfgFile').files];
+      if (list.length <= 1) return list;
+      if (!list.every(f => IMAGE_RE.test(f.name))) throw new Error('Chọn nhiều file chỉ áp dụng cho ảnh (.png, .jpg, .gif, .webp)');
+      if (list.length > MAX_IMAGES) throw new Error('Tối đa ' + MAX_IMAGES + ' ảnh cho 1 mục');
+      return list.sort((a, b) => a.name.localeCompare(b.name, 'vi', { numeric: true }));
     }
 
     function openCfgAdd() {
       $('#cfgModalTitle').textContent = 'Thêm mục mới';
       $('#cfgName').value = ''; $('#cfgUrl').value = ''; $('#cfgGroup').value = '';
       $('#cfgEmbed').value = 'yes'; setSelectedRoles([]); $('#cfgIdx').value = '-1'; $('#cfgMsg').textContent = '';
-      setCfgType('link'); resetCfgFile(null);
+      setCfgType('link'); resetCfgFile([]);
       populateGroupDatalist();
       $('#cfgModal').classList.remove('hidden');
       $('#cfgName').focus();
@@ -835,7 +894,7 @@
       $('#cfgUrl').value = it.url || '';
       $('#cfgGroup').value = it.group || '';
       $('#cfgEmbed').value = it.embed === false ? 'no' : 'yes';
-      setCfgType(it.file ? 'file' : 'link'); resetCfgFile(it.file);
+      setCfgType(itemFiles(it).length ? 'file' : 'link'); resetCfgFile(itemFiles(it));
       setSelectedRoles(it.roles || []);
       $('#cfgIdx').value = String(i);
       $('#cfgMsg').textContent = '';
@@ -864,22 +923,31 @@
       const roles = getSelectedRoles();
       const idx = parseInt($('#cfgIdx').value, 10);
       const isFile = $('#cfgType').value === 'file';
-      const newFile = isFile ? $('#cfgFile').files[0] : null;
+      let newFiles = [];
+      if (isFile) { try { newFiles = pickCfgFiles(); } catch (err) { $('#cfgMsg').textContent = err.message; return; } }
 
       if (!name || !group || (!isFile && !url)) { $('#cfgMsg').textContent = 'Vui lòng điền đủ các trường bắt buộc'; return; }
-      if (isFile && !newFile && !cfgEditFile) { $('#cfgMsg').textContent = 'Chọn file cần nhúng'; return; }
+      if (isFile && !newFiles.length && !cfgEditFiles.length) { $('#cfgMsg').textContent = 'Chọn file cần nhúng'; return; }
 
       const obj = { name, group };
       if (isFile) {
-        obj.file = cfgEditFile;
-        if (newFile) {
-          const btn = $('#cfgForm button[type="submit"]');
-          btn.disabled = true; $('#cfgMsg').style.color = 'var(--muted)'; $('#cfgMsg').textContent = 'Đang tải file lên…';
-          try { obj.file = await uploadPortalFile(newFile); }
-          catch (err) { $('#cfgMsg').style.color = '#dc2626'; $('#cfgMsg').textContent = err.message; return; }
-          finally { btn.disabled = false; }
-          $('#cfgMsg').style.color = '#dc2626'; $('#cfgMsg').textContent = '';
+        let files = cfgEditFiles;
+        if (newFiles.length) {
+          const btn = $('#cfgForm button[type="submit"]'), msg = $('#cfgMsg');
+          btn.disabled = true; msg.style.color = 'var(--muted)';
+          files = [];
+          try {
+            for (const f of newFiles) {
+              msg.textContent = 'Đang tải file lên' + (newFiles.length > 1 ? ' ' + (files.length + 1) + '/' + newFiles.length : '') + '…';
+              files.push(await uploadPortalFile(f));
+            }
+          } catch (err) {
+            deletePortalFiles(files.map(f => f.path)); // bỏ các ảnh đã lên dở
+            msg.style.color = '#dc2626'; msg.textContent = err.message; return;
+          } finally { btn.disabled = false; }
+          msg.style.color = '#dc2626'; msg.textContent = '';
         }
+        if (files.length > 1) obj.files = files; else obj.file = files[0];
       } else {
         obj.url = url;
         if (!embed) obj.embed = false;
@@ -894,7 +962,8 @@
       }
       await saveItems(items);
       // File cũ bị thay / bỏ (chuyển sang Link) → xoá khỏi bucket
-      if (cfgEditFile && (!obj.file || obj.file.path !== cfgEditFile.path)) deletePortalFile(cfgEditFile.path);
+      const kept = new Set(itemFiles(obj).map(f => f.path));
+      deletePortalFiles(cfgEditFiles.map(f => f.path).filter(p => !kept.has(p)));
       closeCfgModal();
       renderConfigTable();
       buildNav(currentUser);
@@ -907,7 +976,7 @@
       if (!it || !confirm('Xoá "' + it.name + '"?')) return;
       items.splice(i, 1);
       await saveItems(items);
-      if (it.file) deletePortalFile(it.file.path);
+      deletePortalFiles(itemFiles(it).map(f => f.path));
       renderConfigTable();
       buildNav(currentUser);
     }
@@ -935,7 +1004,7 @@
         try {
           const items = JSON.parse(reader.result);
           if (!Array.isArray(items)) throw new Error('not array');
-          items.forEach(it => { if (!it.name || !(it.url || (it.file && it.file.path))) throw new Error('missing fields'); });
+          items.forEach(it => { if (!it.name || !(it.url || itemFiles(it).length)) throw new Error('missing fields'); });
           await saveItems(items);
           renderConfigTable();
           buildNav(currentUser);
