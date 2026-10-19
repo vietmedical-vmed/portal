@@ -12,6 +12,13 @@
 //                và role được xem; admin ký được mọi file (xem trước khi lưu).
 //   delete     → { path } | { paths } (admin) — gọi khi xoá / thay file của mục menu.
 //
+//   Cấu hình menu (public.portal_config id=1) — anon không còn đọc/ghi bảng trực tiếp:
+//   get_config   → (user đã login) → { items | null, roles: [{ role }] }
+//                  items = null khi chưa tuỳ chỉnh (client dùng DEFAULT_ITEMS).
+//                  Non-admin chỉ nhận mục role được xem; admin nhận đủ + danh sách role.
+//   save_config  → { items } (admin) — ghi đè toàn bộ danh sách mục.
+//   clear_config → (admin) — xoá cấu hình, portal về danh sách mặc định.
+//
 // Secrets: SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, TOKEN_SECRET (dùng chung với sale_target-login).
 // Deploy : supabase functions deploy portal-files --no-verify-jwt --project-ref nrfxymnfmjhbsgpipvkb
 // ════════════════════════════════════════════════════════════════════════
@@ -70,6 +77,9 @@ Deno.serve(async (req) => {
       case "upload_url": requireAdmin(me); return json({ ok: true, ...(await uploadUrl(db, body)) });
       case "sign":       return json({ ok: true, ...(await sign(db, me, body)) });
       case "delete":     requireAdmin(me); await remove(db, body); return json({ ok: true });
+      case "get_config":   return json({ ok: true, ...(await getConfig(db, me)) });
+      case "save_config":  requireAdmin(me); await saveConfig(db, body); return json({ ok: true });
+      case "clear_config": requireAdmin(me); await clearConfig(db); return json({ ok: true });
       default:           return json({ ok: false, error: "unknown_action" }, 400);
     }
   } catch (e) {
@@ -143,10 +153,7 @@ async function sign(db: SupabaseClient, me: Me, b: Record<string, unknown>) {
     const { data, error } = await db.from("portal_config").select("items").eq("id", 1).maybeSingle();
     if (error) throw error;
     const items = Array.isArray(data?.items) ? data.items as Record<string, unknown>[] : [];
-    const visible = new Set(items.filter((it) => {
-      const roles = Array.isArray(it.roles) ? it.roles.map(normRole) : [];
-      return roles.length === 0 || roles.includes(me.role);
-    }).flatMap(itemPaths));
+    const visible = new Set(items.filter(canSee(me)).flatMap(itemPaths));
     if (!paths.every((p) => visible.has(p))) throw new HttpError(403, "forbidden", "Bạn không có quyền xem file này");
   }
   const { data, error } = await db.storage.from(BUCKET).createSignedUrls(paths, SIGN_TTL);
@@ -157,5 +164,47 @@ async function sign(db: SupabaseClient, me: Me, b: Record<string, unknown>) {
 
 async function remove(db: SupabaseClient, b: Record<string, unknown>) {
   const { error } = await db.storage.from(BUCKET).remove(readPaths(b));
+  if (error) throw error;
+}
+
+// ---------- Cấu hình menu ----------
+const MAX_ITEMS = 200;
+const MAX_CONFIG_BYTES = 256 * 1024;
+
+const canSee = (me: Me) => (it: Record<string, unknown>) => {
+  const roles = Array.isArray(it.roles) ? it.roles.map(normRole) : [];
+  return roles.length === 0 || roles.includes(me.role);
+};
+
+async function getConfig(db: SupabaseClient, me: Me) {
+  const { data, error } = await db.from("portal_config").select("items").eq("id", 1).maybeSingle();
+  if (error) throw error;
+  const all = Array.isArray(data?.items) && data.items.length ? data.items as Record<string, unknown>[] : null;
+  if (me.role !== "admin") return { items: all && all.filter(canSee(me)), roles: [] };
+  const { data: roles, error: rErr } = await db.rpc("get_distinct_roles");
+  if (rErr) throw rErr;
+  return { items: all, roles: roles ?? [] };
+}
+
+async function saveConfig(db: SupabaseClient, b: Record<string, unknown>) {
+  const items = b.items;
+  if (!Array.isArray(items) || !items.length || items.length > MAX_ITEMS) {
+    throw new HttpError(400, "bad_items", `Cần 1–${MAX_ITEMS} mục`);
+  }
+  if (new TextEncoder().encode(JSON.stringify(items)).length > MAX_CONFIG_BYTES) {
+    throw new HttpError(400, "too_large", "Cấu hình quá lớn");
+  }
+  for (const it of items as Record<string, unknown>[]) {
+    if (!it || typeof it !== "object" || !String(it.name ?? "").trim() || !(it.url || itemPaths(it).length)) {
+      throw new HttpError(400, "bad_items", "Mỗi mục cần tên và link hoặc file");
+    }
+  }
+  const { error } = await db.from("portal_config")
+    .upsert({ id: 1, items, updated_at: new Date().toISOString() }, { onConflict: "id" });
+  if (error) throw error;
+}
+
+async function clearConfig(db: SupabaseClient) {
+  const { error } = await db.from("portal_config").delete().eq("id", 1);
   if (error) throw error;
 }

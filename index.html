@@ -379,35 +379,21 @@
         group: "Dashboard", roles: ["admin", "manager"] },
     ];
 
-    const SUPABASE_REST = AUTH.base.replace('/functions/v1', '/rest/v1');
-    const SB_HEADERS = { 'apikey': AUTH.anonKey, 'Authorization': 'Bearer ' + AUTH.anonKey, 'Content-Type': 'application/json' };
-
     const ROLE_ALIASES = { 'pm': 'product_manager', 'sale_manager': 'area_manager', 'am': 'area_manager' };
 
     let KNOWN_ROLES = [];
-
-    async function fetchRoles() {
-      try {
-        const res = await fetch(SUPABASE_REST + '/rpc/get_distinct_roles', { method: 'POST', headers: SB_HEADERS });
-        const rows = await res.json();
-        const unique = [...new Set(rows.map(r => (r.role || '').toLowerCase()).filter(Boolean))];
-        const normalized = [...new Set(unique.map(r => ROLE_ALIASES[r] || r))];
-        KNOWN_ROLES = normalized.sort().map(v => ({ value: v, label: v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), desc: '' }));
-      } catch (e) { console.error('Lấy roles thất bại', e); }
-    }
-
     let cachedItems = null;
 
+    // Cấu hình menu (portal_config) + danh sách role đi qua Edge Function portal-files
+    // (anon không đọc/ghi bảng trực tiếp). Non-admin chỉ nhận các mục role được xem.
     async function fetchConfig() {
       try {
-        const res = await fetch(SUPABASE_REST + '/portal_config?select=items&id=eq.1', { headers: SB_HEADERS });
-        const rows = await res.json();
-        if (rows.length && Array.isArray(rows[0].items) && rows[0].items.length) {
-          cachedItems = rows[0].items;
-        } else {
-          cachedItems = null;
-        }
-      } catch (e) { cachedItems = null; }
+        const data = await fnApi(FILES_API, 'get_config');
+        cachedItems = Array.isArray(data.items) && data.items.length ? data.items : null;
+        const unique = [...new Set((data.roles || []).map(r => (r.role || '').toLowerCase()).filter(Boolean))];
+        const normalized = [...new Set(unique.map(r => ROLE_ALIASES[r] || r))];
+        KNOWN_ROLES = normalized.sort().map(v => ({ value: v, label: v.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()), desc: '' }));
+      } catch (e) { console.error('Lấy cấu hình portal thất bại', e); cachedItems = null; }
     }
 
     function getItems() { return cachedItems ? JSON.parse(JSON.stringify(cachedItems)) : JSON.parse(JSON.stringify(DEFAULT_ITEMS)); }
@@ -416,19 +402,15 @@
     async function saveItems(items) {
       cachedItems = items;
       try {
-        await fetch(SUPABASE_REST + '/portal_config', {
-          method: 'POST',
-          headers: { ...SB_HEADERS, 'Prefer': 'resolution=merge-duplicates,return=minimal' },
-          body: JSON.stringify({ id: 1, items, updated_at: new Date().toISOString() }),
-        });
-      } catch (e) { console.error('Lưu config thất bại', e); }
+        await fnApi(FILES_API, 'save_config', { items });
+      } catch (e) { console.error('Lưu config thất bại', e); alert('Lưu cấu hình thất bại: ' + e.message); }
     }
 
     async function clearConfig() {
       cachedItems = null;
       try {
-        await fetch(SUPABASE_REST + '/portal_config?id=eq.1', { method: 'DELETE', headers: SB_HEADERS });
-      } catch (e) {}
+        await fnApi(FILES_API, 'clear_config');
+      } catch (e) { console.error('Xoá config thất bại', e); alert('Reset cấu hình thất bại: ' + e.message); }
     }
     /* =================================================== */
 
@@ -545,7 +527,7 @@
       $('#uAvatar').textContent = uIni || 'KN';
       $('#uName').textContent = uSrc || 'Người dùng';
       resetView();
-      await Promise.all([fetchConfig(), fetchRoles()]);
+      await fetchConfig();
       buildRolesDropdown();
       buildNav(user);
     }
